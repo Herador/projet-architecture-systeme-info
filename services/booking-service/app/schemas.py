@@ -35,6 +35,23 @@ class BookingOut(BaseModel):
 
 # ── Review ───────────────────────────────────────────────────────────────────
 
+# ── Property (lecture seule, pour le listing) ────────────────────────────────
+
+class PropertyOut(BaseModel):
+    id: UUID
+    owner_id: UUID
+    title: str
+    city: Optional[str] = None
+    address: Optional[str] = None
+    price_per_night: Optional[Decimal] = None
+    num_rooms: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Review ───────────────────────────────────────────────────────────────────
+
 class ReviewCreate(BaseModel):
     target_type: str = Field(..., pattern="^(property|user)$")
     reviewed_id: UUID

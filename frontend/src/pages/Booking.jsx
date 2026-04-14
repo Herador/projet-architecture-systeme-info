@@ -149,7 +149,7 @@ export default function Booking() {
 
     if (b.status === "paid") {
       actions.push(
-        <button key="review" className="btn btn-warning btn-sm" onClick={() => setShowReviewModal(b.id)}>
+        <button key="review" className="btn btn-warning btn-sm" onClick={() => setShowReviewModal(b)}>
           Laisser un avis
         </button>
       );
@@ -295,7 +295,7 @@ export default function Booking() {
 
       {showReviewModal && (
         <ReviewModal
-          bookingId={showReviewModal}
+          booking={showReviewModal}
           onClose={() => setShowReviewModal(null)}
           onCreated={() => {
             setShowReviewModal(null);
@@ -310,11 +310,23 @@ export default function Booking() {
 // ── Modal de création de réservation ──────────────────────
 
 function CreateBookingModal({ onClose, onCreated }) {
+  const [properties, setProperties] = useState([]);
   const [propertyId, setPropertyId] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [error, setError] = useState("");
+  const [loadingProps, setLoadingProps] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    axios
+      .get(`${API_URL}/bookings/properties`)
+      .then((res) => setProperties(res.data))
+      .catch(() => setError("Impossible de charger les propriétés"))
+      .finally(() => setLoadingProps(false));
+  }, []);
+
+  const selected = properties.find((p) => p.id === propertyId);
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -344,14 +356,28 @@ function CreateBookingModal({ onClose, onCreated }) {
         {error && <p className="form-error">{error}</p>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>ID de la propriété</label>
-            <input
-              type="text"
-              placeholder="ex: 11111111-1111-1111-1111-111111111111"
-              value={propertyId}
-              onChange={(e) => setPropertyId(e.target.value)}
-            />
+            <label>Propriété</label>
+            {loadingProps ? (
+              <p style={{ fontSize: "0.875rem", color: "#555" }}>Chargement...</p>
+            ) : properties.length === 0 ? (
+              <p style={{ fontSize: "0.875rem", color: "#555" }}>Aucune propriété disponible</p>
+            ) : (
+              <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
+                <option value="">Sélectionner une propriété</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} — {p.city || "Ville non renseignée"} — {parseFloat(p.price_per_night).toFixed(0)} €/nuit
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
+          {selected && (
+            <div style={{ fontSize: "0.85rem", color: "#555", marginBottom: "1rem" }}>
+              {selected.address && <span>{selected.address} · </span>}
+              {selected.num_rooms && <span>{selected.num_rooms} pièces</span>}
+            </div>
+          )}
           <div className="form-group">
             <label>Date d'arrivée</label>
             <input
@@ -372,7 +398,7 @@ function CreateBookingModal({ onClose, onCreated }) {
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Annuler
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button type="submit" className="btn btn-primary" disabled={submitting || loadingProps}>
               {submitting ? "Envoi..." : "Réserver"}
             </button>
           </div>
@@ -384,13 +410,21 @@ function CreateBookingModal({ onClose, onCreated }) {
 
 // ── Modal d'avis ──────────────────────────────────────────
 
-function ReviewModal({ bookingId, onClose, onCreated }) {
+function ReviewModal({ booking, onClose, onCreated }) {
+  const { user } = useAuth();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [targetType, setTargetType] = useState("property");
-  const [reviewedId, setReviewedId] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // L'ID de la cible est déterminé automatiquement
+  const reviewedId =
+    targetType === "property"
+      ? booking.property_id
+      : user?.role === "tenant"
+        ? booking.owner_id
+        : booking.tenant_id;
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -400,15 +434,11 @@ function ReviewModal({ bookingId, onClose, onCreated }) {
       setError("Veuillez sélectionner une note");
       return;
     }
-    if (!reviewedId) {
-      setError("Veuillez indiquer l'ID de la cible");
-      return;
-    }
 
     setSubmitting(true);
     axios
       .post(
-        `${API_URL}/bookings/${bookingId}/reviews`,
+        `${API_URL}/bookings/${booking.id}/reviews`,
         {
           target_type: targetType,
           reviewed_id: reviewedId,
@@ -432,17 +462,8 @@ function ReviewModal({ bookingId, onClose, onCreated }) {
             <label>Type d'avis</label>
             <select value={targetType} onChange={(e) => setTargetType(e.target.value)}>
               <option value="property">Propriété</option>
-              <option value="user">Utilisateur</option>
+              <option value="user">{user?.role === "tenant" ? "Propriétaire" : "Locataire"}</option>
             </select>
-          </div>
-          <div className="form-group">
-            <label>ID {targetType === "property" ? "de la propriété" : "de l'utilisateur"}</label>
-            <input
-              type="text"
-              placeholder="UUID de la cible"
-              value={reviewedId}
-              onChange={(e) => setReviewedId(e.target.value)}
-            />
           </div>
           <div className="form-group">
             <label>Note</label>

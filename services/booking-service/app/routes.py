@@ -9,7 +9,7 @@ from shared.database import get_db
 from shared.models import Booking, Property, Review, Availability
 from app.schemas import (
     BookingCreate, BookingOut, BookingStatusUpdate,
-    ReviewCreate, ReviewOut,
+    ReviewCreate, ReviewOut, PropertyOut,
 )
 from app.events import publish_event
 
@@ -25,6 +25,18 @@ def _get_user_id(x_user_id: str = Header(...), x_user_role: str = Header("tenant
 def _date_range(start: date, end: date) -> list[date]:
     days = (end - start).days
     return [start + timedelta(days=i) for i in range(days)]
+
+
+# ── GET /bookings/properties – lister les propriétés disponibles ──────────────
+
+@router.get("/properties", response_model=list[PropertyOut])
+def list_available_properties(db: Session = Depends(get_db)):
+    return (
+        db.query(Property)
+        .filter(Property.status == "published")
+        .order_by(Property.created_at.desc())
+        .all()
+    )
 
 
 # ── POST /bookings – créer une réservation ───────────────────────────────────

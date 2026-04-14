@@ -208,6 +208,20 @@ def _forward_booking(method: str, path: str, request: Request, payload: dict = N
         return {"error": str(e)}
 
 
+# Properties (lecture des propriétés disponibles)
+@app.get("/bookings/properties")
+def list_properties(request: Request):
+    try:
+        response = requests.get(f"{BOOKING_SERVICE_URL}/bookings/properties")
+        return Response(
+            content=response.content,
+            status_code=response.status_code,
+            media_type="application/json",
+        )
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # Bookings CRUD
 @app.post("/bookings")
 def create_booking(payload: dict, request: Request):
