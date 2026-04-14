@@ -8,7 +8,6 @@ from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
 
-
 def new_uuid():
     return str(uuid.uuid4())
 
