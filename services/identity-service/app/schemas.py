@@ -1,21 +1,21 @@
 from pydantic import BaseModel
-from datetime import date
+from typing import Optional
 
-class CreateAccount(BaseModel):      # What the client SENDS
+
+class CreateAccount(BaseModel):
     username: str
     email: str
     password: str
     confirm_password: str
 
-class Login(BaseModel):         # What the API RETURNS
-    registration_input: str    # can be either username or email
+class Login(BaseModel):
+    registration_input: str  # username ou email
     password: str
-    
+
 class UserInfo(BaseModel):
     id: str
     username: str
     email: str
     role: str
     is_verified: bool
-    token: str
-    
+    token: Optional[str] = None

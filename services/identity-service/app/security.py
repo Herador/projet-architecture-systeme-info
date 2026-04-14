@@ -1,35 +1,61 @@
-from fastapi import Depends, HTTPException, Request
-import httpx
+from fastapi import HTTPException, Request
+from shared.database import SessionLocal
+from shared.models import User, VerificationToken
+import jwt
+import os
 
-async def get_current_user(request: Request):
-    authorization: str = request.headers.get("Authorization")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET")
+
+
+def get_current_user(request: Request):
+    authorization = request.headers.get("Authorization")
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authorization header missing or invalid")
-    
+
     token = authorization.split("Bearer ")[1]
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "http://identity-service/auth/me",
-            headers={"Authorization": f"Bearer {token}"}
-        )
-    
-    if response.status_code != 200:
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=["HS256"])
+        user_id = payload.get("user_id")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-    
-    return response.json()
 
-async def verify_no_connection(request: Request):
-    authorization: str = request.headers.get("Authorization")
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.split("Bearer ")[1]
+    session = SessionLocal()
+    try:
+        db_token = session.query(VerificationToken).filter(VerificationToken.token == token).first()
+        if not db_token:
+            raise HTTPException(status_code=401, detail="Token not found or revoked")
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "http://identity-service/auth/me",
-                headers={"Authorization": f"Bearer {token}"}
-            )
-        
-        if response.status_code == 200:
+        user = session.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        return user
+    finally:
+        session.close()
+
+
+def verify_no_connection(request: Request):
+    authorization = request.headers.get("Authorization")
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+
+    token = authorization.split("Bearer ")[1]
+
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=["HS256"])
+        user_id = payload.get("user_id")
+    except jwt.InvalidTokenError:
+        return None
+
+    session = SessionLocal()
+    try:
+        db_token = session.query(VerificationToken).filter(VerificationToken.token == token).first()
+        if db_token:
             raise HTTPException(status_code=403, detail="User is already connected")
+    finally:
+        session.close()
+
     return None
