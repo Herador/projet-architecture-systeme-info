@@ -37,6 +37,13 @@ services:
     depends_on:
       - db
 
+  frontend:
+   build: ./frontend
+   ports:
+     - "5173:5173"
+   depends_on:
+     - gateway
+     
 volumes:
   postgres_data:
 
@@ -83,9 +90,3 @@ volumes:
 #    depends_on:
 #      - db
 #
-#  frontend:
-#    build: ./frontend
-#    ports:
-#      - "5173:5173"
-#    depends_on:
-#      - gateway

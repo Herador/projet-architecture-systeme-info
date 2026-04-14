@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Response
 from fastapi.openapi.utils import get_openapi
+from fastapi.middleware.cors import CORSMiddleware
 import time
 import requests
 
@@ -7,6 +8,14 @@ from shared.database import engine
 from shared.models import Base
 
 app = FastAPI(title="Gateway")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def custom_openapi():
