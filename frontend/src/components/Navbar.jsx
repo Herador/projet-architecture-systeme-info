@@ -33,6 +33,7 @@ export default function Navbar() {
         </Link>
         <div className="navbar-nav">
           <Link to="/" className="navbar-link">Accueil</Link>
+          {user && <Link to="/bookings" className="navbar-link">Réservations</Link>}
         </div>
       </div>
 
