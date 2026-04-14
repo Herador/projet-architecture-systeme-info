@@ -8,7 +8,6 @@ from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
 
-
 def new_uuid():
     return str(uuid.uuid4())
 
@@ -19,6 +18,7 @@ class User(Base):
     __tablename__ = "users"
 
     id               = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username         = Column(String(50), unique=True, nullable=False)
     email            = Column(String(255), unique=True, nullable=False)
     hashed_password  = Column(String(255), nullable=False)
     role             = Column(String(20), nullable=False, default="tenant")  # tenant / owner / admin
