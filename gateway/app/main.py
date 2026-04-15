@@ -257,3 +257,16 @@ def create_review(booking_id: str, payload: dict, request: Request):
 @app.get("/bookings/{booking_id}/reviews")
 def list_reviews(booking_id: str, request: Request):
     return _forward_booking("GET", f"/bookings/{booking_id}/reviews", request)
+
+
+@app.get("/bookings/config")
+def get_config(request: Request):
+    try:
+        response = requests.get(f"{BOOKING_SERVICE_URL}/bookings/config")
+        return Response(
+            content=response.content,
+            status_code=response.status_code,
+            media_type="application/json",
+        )
+    except Exception as e:
+        return {"error": str(e)}

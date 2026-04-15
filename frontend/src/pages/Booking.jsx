@@ -4,24 +4,58 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../styles/Booking.css";
 
-const API_URL = "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-const STATUS_LABELS = {
-  pending: "En attente",
-  accepted: "Acceptée",
-  refused: "Refusée",
-  paid: "Payée",
-  cancelled: "Annulée",
+const ERROR_CODES = {
+  RESOURCE_NOT_FOUND: "Ressource introuvable",
+  VALIDATION_ERROR: "Erreur de validation",
+  UNAUTHORIZED: "Non autorisé",
+  FORBIDDEN: "Accès refusé",
+  CONFLICT: "Conflit détecté",
+  INVALID_STATUS_TRANSITION: "Transition de statut impossible",
+  DATE_UNAVAILABLE: "Date non disponible",
+  BOOKING_OVERLAP: "Chevauchement de réservation",
+  SELF_BOOKING_NOT_ALLOWED: "Vous ne pouvez pas réserver votre propre bien",
+  INVALID_DATES: "Dates invalides",
+  PAST_DATE_NOT_ALLOWED: "Date dans le passé non autorisée",
+  ALREADY_REVIEWED: "Avis déjà existant",
+  REVIEW_ONLY_PAID: "Uniquement pour réservations payées",
+  CANNOT_CANCEL_PAID: "Impossible d'annuler une réservation payée",
+  ALREADY_TERMINAL: "Réservation déjà terminée",
+  PROPERTY_NOT_AVAILABLE: "Propriété non disponible",
+  INVALID_ROLE: "Rôle invalide",
+  INVALID_STATUS: "Statut invalide",
+  INTERNAL_ERROR: "Erreur interne",
 };
 
-const FILTERS = [
-  { value: "", label: "Toutes" },
-  { value: "pending", label: "En attente" },
-  { value: "accepted", label: "Acceptées" },
-  { value: "paid", label: "Payées" },
-  { value: "refused", label: "Refusées" },
-  { value: "cancelled", label: "Annulées" },
-];
+const ACTION_MESSAGES = {
+  create_booking: "Réservation créée avec succès",
+  update_status: "Statut mis à jour",
+  cancel_booking: "Réservation annulée",
+  create_review: "Avis enregistré",
+  list_bookings: "Réservations chargées",
+  list_reviews: "Avis chargés",
+  get_config: "Configuration chargée",
+};
+
+function handleApiResponse(response, successCallback, errorCallback) {
+  const { success, data, error, action, meta } = response;
+
+  if (success) {
+    if (action?.action && ACTION_MESSAGES[action.action]) {
+      return successCallback(data, meta, ACTION_MESSAGES[action.action]);
+    }
+    return successCallback(data, meta);
+  }
+
+  if (error) {
+    const message = ERROR_CODES[error.code] || error.message;
+    const canRetry = error.retry_possible !== false;
+    return errorCallback(message, error.code, canRetry, error.details);
+  }
+
+  return errorCallback("Une erreur inattendue s'est produite", "UNKNOWN", true);
+}
 
 function authHeaders() {
   const token = localStorage.getItem("token");
@@ -32,12 +66,12 @@ export default function Booking() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
+  const [config, setConfig] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [message, setMessage] = useState(null);
 
-  // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(null);
   const [expandedReviews, setExpandedReviews] = useState({});
@@ -47,25 +81,58 @@ export default function Booking() {
   }, [authLoading, user, navigate]);
 
   useEffect(() => {
-    if (user) fetchBookings();
-  }, [user, filter]);
+    if (user) {
+      fetchConfig();
+    }
+  }, [user]);
 
-  function fetchBookings() {
-    setLoading(true);
-    const params = filter ? `?status=${filter}` : "";
-    axios
-      .get(`${API_URL}/bookings${params}`, { headers: authHeaders() })
-      .then((res) => setBookings(res.data))
-      .catch(() => flash("Erreur lors du chargement des réservations", "error"))
-      .finally(() => setLoading(false));
-  }
+  useEffect(() => {
+    if (config && user) {
+      fetchBookings();
+    }
+  }, [config, user, filter]);
 
   function flash(text, type = "success") {
     setMessage({ text, type });
     setTimeout(() => setMessage(null), 4000);
   }
 
-  // ── Actions sur les réservations ──────────────────────
+  function handleError(message, code, canRetry, details) {
+    if (canRetry) {
+      flash(`${message}. Veuillez réessayer.`, "error");
+    } else {
+      flash(message, "error");
+    }
+  }
+
+  function fetchConfig() {
+    axios
+      .get(`${API_URL}/bookings/config`)
+      .then((res) => {
+        handleApiResponse(
+          res.data,
+          (data, meta, actionMsg) => setConfig(data),
+          (msg) => flash(msg, "error")
+        );
+      })
+      .catch(() => flash("Erreur lors du chargement de la configuration", "error"));
+  }
+
+  function fetchBookings() {
+    setLoading(true);
+    const params = filter ? `?status=${filter}` : "";
+    axios
+      .get(`${API_URL}/bookings${params}`, { headers: authHeaders() })
+      .then((res) => {
+        handleApiResponse(
+          res.data,
+          (data, meta) => setBookings(data),
+          handleError
+        );
+      })
+      .catch(() => flash("Erreur lors du chargement des réservations", "error"))
+      .finally(() => setLoading(false));
+  }
 
   function updateStatus(bookingId, status) {
     axios
@@ -74,22 +141,33 @@ export default function Booking() {
         { status },
         { headers: authHeaders() }
       )
-      .then(() => {
-        flash(`Réservation ${STATUS_LABELS[status].toLowerCase()}`);
-        fetchBookings();
-      })
-      .catch((err) => flash(err.response?.data?.detail || "Erreur", "error"));
+      .then((res) => {
+        handleApiResponse(
+          res.data,
+          (data, meta) => {
+            const statusLabel = getStatusLabel(status);
+            flash(`Réservation ${statusLabel.toLowerCase()}`);
+            fetchBookings();
+          },
+          handleError
+        );
+      });
   }
 
   function cancelBooking(bookingId) {
     if (!confirm("Annuler cette réservation ?")) return;
     axios
       .delete(`${API_URL}/bookings/${bookingId}`, { headers: authHeaders() })
-      .then(() => {
-        flash("Réservation annulée");
-        fetchBookings();
-      })
-      .catch((err) => flash(err.response?.data?.detail || "Erreur", "error"));
+      .then((res) => {
+        handleApiResponse(
+          res.data,
+          () => {
+            flash("Réservation annulée");
+            fetchBookings();
+          },
+          handleError
+        );
+      });
   }
 
   function toggleReviews(bookingId) {
@@ -104,43 +182,72 @@ export default function Booking() {
         .get(`${API_URL}/bookings/${bookingId}/reviews`, {
           headers: authHeaders(),
         })
-        .then((res) =>
-          setExpandedReviews((prev) => ({ ...prev, [bookingId]: res.data }))
-        )
-        .catch(() => flash("Erreur chargement avis", "error"));
+        .then((res) => {
+          handleApiResponse(
+            res.data,
+            (data) => setExpandedReviews((prev) => ({ ...prev, [bookingId]: data })),
+            handleError
+          );
+        });
     }
   }
 
-  // ── Rendu des actions par statut / rôle ───────────────
+  function getStatusLabel(status) {
+    if (!config) return status;
+    const found = config.booking_statuses.find((s) => s.value === status);
+    return found ? found.label : status;
+  }
+
+  function getStatusTransitions(role, currentStatus) {
+    if (!config || !config.status_transitions) return [];
+    const roleTransitions = config.status_transitions[role] || {};
+    return roleTransitions[currentStatus] || [];
+  }
 
   function renderActions(b) {
+    if (!config) return null;
     const role = user?.role;
     const actions = [];
+    const transitions = getStatusTransitions(role, b.status);
 
     if (role === "owner") {
-      if (b.status === "pending") {
+      transitions.forEach((status) => {
+        const label = status === "accepted" ? "Accepter" : "Refuser";
+        const className = status === "accepted" ? "btn-success" : "btn-danger";
         actions.push(
-          <button key="accept" className="btn btn-success btn-sm" onClick={() => updateStatus(b.id, "accepted")}>
-            Accepter
-          </button>,
-          <button key="refuse" className="btn btn-danger btn-sm" onClick={() => updateStatus(b.id, "refused")}>
-            Refuser
+          <button
+            key={status}
+            className={`btn ${className} btn-sm`}
+            onClick={() => updateStatus(b.id, status)}
+          >
+            {label}
           </button>
         );
-      }
+      });
     }
 
     if (role === "tenant" || role === "admin") {
-      if (b.status === "accepted") {
-        actions.push(
-          <button key="pay" className="btn btn-primary btn-sm" onClick={() => updateStatus(b.id, "paid")}>
-            Payer
-          </button>
-        );
-      }
+      transitions.forEach((status) => {
+        if (status === "paid") {
+          actions.push(
+            <button
+              key="pay"
+              className="btn btn-primary btn-sm"
+              onClick={() => updateStatus(b.id, "paid")}
+            >
+              Payer
+            </button>
+          );
+        }
+      });
+
       if (["pending", "accepted"].includes(b.status)) {
         actions.push(
-          <button key="cancel" className="btn btn-danger btn-sm" onClick={() => cancelBooking(b.id)}>
+          <button
+            key="cancel"
+            className="btn btn-danger btn-sm"
+            onClick={() => cancelBooking(b.id)}
+          >
             Annuler
           </button>
         );
@@ -149,14 +256,22 @@ export default function Booking() {
 
     if (b.status === "paid") {
       actions.push(
-        <button key="review" className="btn btn-warning btn-sm" onClick={() => setShowReviewModal(b)}>
+        <button
+          key="review"
+          className="btn btn-warning btn-sm"
+          onClick={() => setShowReviewModal(b)}
+        >
           Laisser un avis
         </button>
       );
     }
 
     actions.push(
-      <button key="reviews" className="btn btn-secondary btn-sm" onClick={() => toggleReviews(b.id)}>
+      <button
+        key="reviews"
+        className="btn btn-secondary btn-sm"
+        onClick={() => toggleReviews(b.id)}
+      >
         {expandedReviews[b.id] ? "Masquer avis" : "Voir avis"}
       </button>
     );
@@ -167,13 +282,26 @@ export default function Booking() {
   if (authLoading) return <div className="booking-loading">Chargement...</div>;
   if (!user) return null;
 
+  const filters = config
+    ? [
+        { value: "", label: "Toutes" },
+        ...config.booking_statuses.map((s) => ({
+          value: s.value,
+          label: s.label + (s.value === "pending" ? "s" : ""),
+        })),
+      ]
+    : [];
+
   return (
     <div className="booking-page">
       <div className="booking-container">
         <div className="booking-header">
           <h1>Mes réservations</h1>
           {user.role === "tenant" && (
-            <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowCreateModal(true)}
+            >
               Nouvelle réservation
             </button>
           )}
@@ -184,7 +312,7 @@ export default function Booking() {
         )}
 
         <div className="booking-filters">
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <button
               key={f.value}
               className={`filter-btn ${filter === f.value ? "active" : ""}`}
@@ -207,13 +335,11 @@ export default function Booking() {
               <div key={b.id} className="booking-card">
                 <div className="booking-card-header">
                   <div>
-                    <h3 className="booking-card-title">
-                      Réservation
-                    </h3>
+                    <h3 className="booking-card-title">Réservation</h3>
                     <p className="booking-card-id">#{b.id.slice(0, 8)}</p>
                   </div>
                   <span className={`status-badge status-${b.status}`}>
-                    {STATUS_LABELS[b.status]}
+                    {getStatusLabel(b.status)}
                   </span>
                 </div>
 
@@ -265,7 +391,9 @@ export default function Booking() {
                               {"☆".repeat(5 - r.rating)}
                             </span>
                             <span className="review-date">
-                              {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                              {new Date(r.created_at).toLocaleDateString(
+                                "fr-FR"
+                              )}
                             </span>
                           </div>
                           {r.comment && (
@@ -282,8 +410,9 @@ export default function Booking() {
         )}
       </div>
 
-      {showCreateModal && (
+      {showCreateModal && config && (
         <CreateBookingModal
+          config={config}
           onClose={() => setShowCreateModal(false)}
           onCreated={() => {
             setShowCreateModal(false);
@@ -293,9 +422,10 @@ export default function Booking() {
         />
       )}
 
-      {showReviewModal && (
+      {showReviewModal && config && (
         <ReviewModal
           booking={showReviewModal}
+          config={config}
           onClose={() => setShowReviewModal(null)}
           onCreated={() => {
             setShowReviewModal(null);
@@ -307,9 +437,7 @@ export default function Booking() {
   );
 }
 
-// ── Modal de création de réservation ──────────────────────
-
-function CreateBookingModal({ onClose, onCreated }) {
+function CreateBookingModal({ config, onClose, onCreated }) {
   const [properties, setProperties] = useState([]);
   const [propertyId, setPropertyId] = useState("");
   const [checkIn, setCheckIn] = useState("");
@@ -321,7 +449,13 @@ function CreateBookingModal({ onClose, onCreated }) {
   useEffect(() => {
     axios
       .get(`${API_URL}/bookings/properties`)
-      .then((res) => setProperties(res.data))
+      .then((res) => {
+        handleApiResponse(
+          res.data,
+          (data) => setProperties(data),
+          (msg) => setError(msg)
+        );
+      })
       .catch(() => setError("Impossible de charger les propriétés"))
       .finally(() => setLoadingProps(false));
   }, []);
@@ -344,8 +478,13 @@ function CreateBookingModal({ onClose, onCreated }) {
         { property_id: propertyId, check_in: checkIn, check_out: checkOut },
         { headers: authHeaders() }
       )
-      .then(() => onCreated())
-      .catch((err) => setError(err.response?.data?.detail || "Erreur lors de la création"))
+      .then((res) => {
+        handleApiResponse(
+          res.data,
+          onCreated,
+          (msg, code, canRetry) => setError(msg)
+        );
+      })
       .finally(() => setSubmitting(false));
   }
 
@@ -360,45 +499,57 @@ function CreateBookingModal({ onClose, onCreated }) {
             {loadingProps ? (
               <p style={{ fontSize: "0.875rem", color: "#555" }}>Chargement...</p>
             ) : properties.length === 0 ? (
-              <p style={{ fontSize: "0.875rem", color: "#555" }}>Aucune propriété disponible</p>
+              <p style={{ fontSize: "0.875rem", color: "#555" }}>
+                Aucune propriété disponible
+              </p>
             ) : (
-              <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
+              <select
+                value={propertyId}
+                onChange={(e) => setPropertyId(e.target.value)}
+              >
                 <option value="">Sélectionner une propriété</option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.title} — {p.city || "Ville non renseignée"} — {parseFloat(p.price_per_night).toFixed(0)} €/nuit
+                    {p.title} — {p.city || "Ville non renseignée"} —{" "}
+                    {parseFloat(p.price_per_night).toFixed(0)} €/nuit
                   </option>
                 ))}
               </select>
             )}
           </div>
           {selected && (
-            <div style={{ fontSize: "0.85rem", color: "#555", marginBottom: "1rem" }}>
+            <div
+              style={{
+                fontSize: "0.85rem",
+                color: "#555",
+                marginBottom: "1rem",
+              }}
+            >
               {selected.address && <span>{selected.address} · </span>}
               {selected.num_rooms && <span>{selected.num_rooms} pièces</span>}
             </div>
           )}
           <div className="form-group">
             <label>Date d'arrivée</label>
-            <input
-              type="date"
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-            />
+            <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
           </div>
           <div className="form-group">
             <label>Date de départ</label>
-            <input
-              type="date"
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-            />
+            <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+            >
               Annuler
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting || loadingProps}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={submitting || loadingProps}
+            >
               {submitting ? "Envoi..." : "Réserver"}
             </button>
           </div>
@@ -408,9 +559,7 @@ function CreateBookingModal({ onClose, onCreated }) {
   );
 }
 
-// ── Modal d'avis ──────────────────────────────────────────
-
-function ReviewModal({ booking, onClose, onCreated }) {
+function ReviewModal({ booking, config, onClose, onCreated }) {
   const { user } = useAuth();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -418,7 +567,9 @@ function ReviewModal({ booking, onClose, onCreated }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // L'ID de la cible est déterminé automatiquement
+  const ratingRange = config?.review_rating_range || { min: 1, max: 5 };
+  const targetTypes = config?.review_target_types || ["property", "user"];
+
   const reviewedId =
     targetType === "property"
       ? booking.property_id
@@ -447,8 +598,13 @@ function ReviewModal({ booking, onClose, onCreated }) {
         },
         { headers: authHeaders() }
       )
-      .then(() => onCreated())
-      .catch((err) => setError(err.response?.data?.detail || "Erreur lors de l'envoi"))
+      .then((res) => {
+        handleApiResponse(
+          res.data,
+          onCreated,
+          (msg, code, canRetry) => setError(msg)
+        );
+      })
       .finally(() => setSubmitting(false));
   }
 
@@ -460,15 +616,24 @@ function ReviewModal({ booking, onClose, onCreated }) {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Type d'avis</label>
-            <select value={targetType} onChange={(e) => setTargetType(e.target.value)}>
-              <option value="property">Propriété</option>
-              <option value="user">{user?.role === "tenant" ? "Propriétaire" : "Locataire"}</option>
+            <select
+              value={targetType}
+              onChange={(e) => setTargetType(e.target.value)}
+            >
+              {targetTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type === "property" ? "Propriété" : "Propriétaire"}
+                </option>
+              ))}
             </select>
           </div>
           <div className="form-group">
             <label>Note</label>
             <div className="stars">
-              {[1, 2, 3, 4, 5].map((n) => (
+              {Array.from(
+                { length: ratingRange.max },
+                (_, i) => i + ratingRange.min
+              ).map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -489,10 +654,18 @@ function ReviewModal({ booking, onClose, onCreated }) {
             />
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+            >
               Annuler
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={submitting}
+            >
               {submitting ? "Envoi..." : "Envoyer"}
             </button>
           </div>

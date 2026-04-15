@@ -1,25 +1,66 @@
+import logging
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from uuid import UUID
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, Header
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from shared.database import get_db
 from shared.models import Booking, Property, Review, Availability
+from shared.config import (
+    BOOKING_STATUS_VALUES,
+    BOOKING_STATUS_LABELS,
+    STATUS_TRANSITIONS,
+    BOOKABLE_STATUSES,
+    PROPERTY_STATUS_VALUES,
+    USER_ROLE_VALUES,
+    is_valid_booking_status,
+    is_valid_user_role,
+    can_transition,
+    build_frontend_config,
+)
 from app.schemas import (
     BookingCreate, BookingOut, BookingStatusUpdate,
-    ReviewCreate, ReviewOut, PropertyOut,
+    ReviewCreate, ReviewOut, PropertyOut, ConfigOut,
 )
 from app.events import publish_event
+from app.response import ApiResponse, ErrorCode, error_response
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+def _get_user_id(x_user_id: str = Header(...), x_user_role: str = Header(...)) -> dict:
+    try:
+        user_id = UUID(x_user_id)
+    except ValueError:
+        return error_response(
+            ErrorCode.VALIDATION_ERROR,
+            "Identifiant utilisateur invalide",
+            400,
+            field="user_id",
+        )
+    
+    if not is_valid_user_role(x_user_role):
+        return error_response(
+            ErrorCode.INVALID_ROLE,
+            f"Rôle invalide. Valeurs possibles: {', '.join(USER_ROLE_VALUES)}",
+            400,
+            field="role",
+        )
+    
+    return {"user_id": user_id, "role": x_user_role, "_ok": True}
 
-def _get_user_id(x_user_id: str = Header(...), x_user_role: str = Header("tenant")) -> dict:
-    return {"user_id": UUID(x_user_id), "role": x_user_role}
+
+def _check_user(user_data) -> Optional[tuple]:
+    if isinstance(user_data, tuple):
+        return user_data
+    return None
 
 
 def _date_range(start: date, end: date) -> list[date]:
@@ -27,297 +68,632 @@ def _date_range(start: date, end: date) -> list[date]:
     return [start + timedelta(days=i) for i in range(days)]
 
 
-# ── GET /bookings/properties – lister les propriétés disponibles ──────────────
+def _log_action(action: str, user_id: str, resource_id: str = None, details: dict = None):
+    log_data = {"action": action, "user_id": user_id}
+    if resource_id:
+        log_data["resource_id"] = resource_id
+    if details:
+        log_data.update(details)
+    logger.info(f"[ACTION] {log_data}")
 
-@router.get("/properties", response_model=list[PropertyOut])
+
+@router.get("/properties", response_model=ApiResponse[list[PropertyOut]])
 def list_available_properties(db: Session = Depends(get_db)):
-    return (
-        db.query(Property)
-        .filter(Property.status == "published")
-        .order_by(Property.created_at.desc())
-        .all()
-    )
+    try:
+        published_status = PROPERTY_STATUS_VALUES[1] if len(PROPERTY_STATUS_VALUES) > 1 else "published"
+        properties = (
+            db.query(Property)
+            .filter(Property.status == published_status)
+            .order_by(Property.created_at.desc())
+            .all()
+        )
+        return ApiResponse.ok(
+            properties,
+            action="list_properties",
+            meta={"count": len(properties)},
+        )
+    except SQLAlchemyError:
+        logger.exception("Erreur lors du chargement des propriétés")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de charger les propriétés, veuillez réessayer",
+            500,
+        )
 
 
-# ── POST /bookings – créer une réservation ───────────────────────────────────
-
-@router.post("/", response_model=BookingOut, status_code=201)
+@router.post("/", response_model=ApiResponse[BookingOut], status_code=201)
 async def create_booking(
     payload: BookingCreate,
     user: dict = Depends(_get_user_id),
     db: Session = Depends(get_db),
 ):
-    # Vérifier que la propriété existe et est publiée
+    auth_error = _check_user(user)
+    if auth_error:
+        return auth_error
+
     prop = db.query(Property).filter(Property.id == payload.property_id).first()
     if not prop:
-        raise HTTPException(404, "Propriété introuvable")
-    if prop.status != "published":
-        raise HTTPException(400, "Cette propriété n'est pas disponible à la location")
+        return error_response(
+            ErrorCode.RESOURCE_NOT_FOUND,
+            "Propriété introuvable — vérifiez votre sélection",
+            404,
+            field="property_id",
+            details={"property_id": str(payload.property_id)},
+        )
 
-    # Un propriétaire ne peut pas réserver son propre bien
+    published_status = PROPERTY_STATUS_VALUES[1] if len(PROPERTY_STATUS_VALUES) > 1 else "published"
+    if prop.status != published_status:
+        return error_response(
+            ErrorCode.PROPERTY_NOT_AVAILABLE,
+            "Cette propriété n'est pas disponible à la location",
+            400,
+            field="property_id",
+        )
+
     if str(prop.owner_id) == str(user["user_id"]):
-        raise HTTPException(400, "Vous ne pouvez pas réserver votre propre propriété")
+        return error_response(
+            ErrorCode.SELF_BOOKING_NOT_ALLOWED,
+            "Vous ne pouvez pas réserver votre propre propriété",
+            400,
+            field="property_id",
+        )
 
-    # Vérifier les dates
     if payload.check_in >= payload.check_out:
-        raise HTTPException(400, "La date d'arrivée doit être avant la date de départ")
-    if payload.check_in < date.today():
-        raise HTTPException(400, "La date d'arrivée ne peut pas être dans le passé")
+        return error_response(
+            ErrorCode.INVALID_DATES,
+            "La date d'arrivée doit être avant la date de départ",
+            400,
+            field="check_out",
+        )
 
-    # Vérifier la disponibilité (pas de dates bloquées ni de réservations existantes)
+    if payload.check_in < date.today():
+        return error_response(
+            ErrorCode.PAST_DATE_NOT_ALLOWED,
+            "La date d'arrivée ne peut pas être dans le passé",
+            400,
+            field="check_in",
+        )
+
     requested_dates = _date_range(payload.check_in, payload.check_out)
 
-    blocked = (
-        db.query(Availability)
-        .filter(
-            Availability.property_id == payload.property_id,
-            Availability.date.in_(requested_dates),
-            Availability.is_blocked == True,
+    try:
+        blocked = (
+            db.query(Availability)
+            .filter(
+                Availability.property_id == payload.property_id,
+                Availability.date.in_(requested_dates),
+                Availability.is_blocked == True,
+            )
+            .first()
         )
-        .first()
-    )
+    except SQLAlchemyError:
+        logger.exception("Erreur lors de la vérification des disponibilités")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de vérifier les disponibilités, veuillez réessayer",
+            500,
+        )
+
     if blocked:
-        raise HTTPException(409, "Certaines dates ne sont pas disponibles")
-
-    overlapping = (
-        db.query(Booking)
-        .filter(
-            Booking.property_id == payload.property_id,
-            Booking.status.in_(["pending", "accepted", "paid"]),
-            Booking.check_in < payload.check_out,
-            Booking.check_out > payload.check_in,
+        return error_response(
+            ErrorCode.DATE_UNAVAILABLE,
+            f"La date du {blocked.date.strftime('%d/%m/%Y')} n'est pas disponible",
+            409,
+            field="check_in",
+            retry_possible=False,
         )
-        .first()
-    )
+
+    try:
+        overlapping = (
+            db.query(Booking)
+            .filter(
+                Booking.property_id == payload.property_id,
+                Booking.status.in_(BOOKABLE_STATUSES),
+                Booking.check_in < payload.check_out,
+                Booking.check_out > payload.check_in,
+            )
+            .first()
+        )
+    except SQLAlchemyError:
+        logger.exception("Erreur lors de la vérification des chevauchements")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de vérifier les réservations existantes, veuillez réessayer",
+            500,
+        )
+
     if overlapping:
-        raise HTTPException(409, "Un chevauchement existe avec une réservation existante")
+        return error_response(
+            ErrorCode.BOOKING_OVERLAP,
+            f"Ces dates chevauchent une réservation existante "
+            f"(du {overlapping.check_in.strftime('%d/%m/%Y')} au {overlapping.check_out.strftime('%d/%m/%Y')})",
+            409,
+            field="check_in",
+            retry_possible=False,
+        )
 
-    # Calculer le prix total
     num_nights = (payload.check_out - payload.check_in).days
-    total_price = Decimal(str(prop.price_per_night)) * num_nights
+    try:
+        total_price = Decimal(str(prop.price_per_night)) * num_nights
+    except (InvalidOperation, TypeError):
+        return error_response(
+            ErrorCode.VALIDATION_ERROR,
+            "Le prix de cette propriété est invalide, contactez le propriétaire",
+            400,
+            field="price_per_night",
+        )
 
-    booking = Booking(
-        tenant_id=user["user_id"],
-        property_id=payload.property_id,
-        owner_id=prop.owner_id,
-        check_in=payload.check_in,
-        check_out=payload.check_out,
-        total_price=total_price,
-        status="pending",
+    try:
+        booking = Booking(
+            tenant_id=user["user_id"],
+            property_id=payload.property_id,
+            owner_id=prop.owner_id,
+            check_in=payload.check_in,
+            check_out=payload.check_out,
+            total_price=total_price,
+            status=BOOKING_STATUS_VALUES[0],
+        )
+        db.add(booking)
+        db.commit()
+        db.refresh(booking)
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Erreur lors de la création de la réservation")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de créer la réservation, veuillez réessayer",
+            500,
+        )
+
+    _log_action(
+        "booking_created",
+        str(user["user_id"]),
+        str(booking.id),
+        {"property_id": str(payload.property_id), "total_price": str(total_price)},
     )
-    db.add(booking)
-    db.commit()
-    db.refresh(booking)
 
-    # Publier un événement RabbitMQ
-    await publish_event("booking_events", "booking.created", {
-        "booking_id": str(booking.id),
-        "tenant_id": str(booking.tenant_id),
-        "owner_id": str(booking.owner_id),
-        "property_id": str(booking.property_id),
-        "check_in": str(booking.check_in),
-        "check_out": str(booking.check_out),
-        "total_price": str(booking.total_price),
-    })
+    try:
+        await publish_event("booking_events", "booking.created", {
+            "booking_id": str(booking.id),
+            "tenant_id": str(booking.tenant_id),
+            "owner_id": str(booking.owner_id),
+            "property_id": str(booking.property_id),
+            "check_in": str(booking.check_in),
+            "check_out": str(booking.check_out),
+            "total_price": str(booking.total_price),
+        })
+    except Exception:
+        logger.warning("Impossible de publier l'événement booking.created (RabbitMQ)")
 
-    return booking
+    return ApiResponse.ok(
+        booking,
+        action="create_booking",
+        meta={"status": booking.status, "num_nights": num_nights},
+    )
 
 
-# ── GET /bookings – lister les réservations de l'utilisateur ─────────────────
-
-@router.get("/", response_model=list[BookingOut])
+@router.get("/", response_model=ApiResponse[list[BookingOut]])
 def list_bookings(
     status: str | None = None,
     user: dict = Depends(_get_user_id),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Booking)
+    auth_error = _check_user(user)
+    if auth_error:
+        return auth_error
 
-    # Un locataire voit ses réservations, un propriétaire celles de ses biens
-    if user["role"] == "owner":
-        query = query.filter(Booking.owner_id == user["user_id"])
-    else:
-        query = query.filter(Booking.tenant_id == user["user_id"])
+    try:
+        query = db.query(Booking)
 
-    if status:
-        query = query.filter(Booking.status == status)
+        if user["role"] == "owner":
+            query = query.filter(Booking.owner_id == user["user_id"])
+        else:
+            query = query.filter(Booking.tenant_id == user["user_id"])
 
-    return query.order_by(Booking.created_at.desc()).all()
+        if status:
+            if not is_valid_booking_status(status):
+                return error_response(
+                    ErrorCode.INVALID_STATUS,
+                    f"Statut invalide. Valeurs possibles : {', '.join(BOOKING_STATUS_VALUES)}",
+                    400,
+                    field="status",
+                )
+            query = query.filter(Booking.status == status)
+
+        bookings = query.order_by(Booking.created_at.desc()).all()
+        return ApiResponse.ok(
+            bookings,
+            action="list_bookings",
+            meta={"count": len(bookings), "filter": status},
+        )
+    except SQLAlchemyError:
+        logger.exception("Erreur lors du chargement des réservations")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de charger vos réservations, veuillez réessayer",
+            500,
+        )
 
 
-# ── GET /bookings/{id} – détail d'une réservation ───────────────────────────
-
-@router.get("/{booking_id}", response_model=BookingOut)
+@router.get("/{booking_id}", response_model=ApiResponse[BookingOut])
 def get_booking(
     booking_id: UUID,
     user: dict = Depends(_get_user_id),
     db: Session = Depends(get_db),
 ):
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
-    if not booking:
-        raise HTTPException(404, "Réservation introuvable")
+    auth_error = _check_user(user)
+    if auth_error:
+        return auth_error
 
-    # Seuls le locataire, le propriétaire ou un admin peuvent voir la réservation
+    try:
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    except SQLAlchemyError:
+        logger.exception("Erreur lors de la récupération de la réservation")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de charger la réservation, veuillez réessayer",
+            500,
+        )
+
+    if not booking:
+        return error_response(
+            ErrorCode.RESOURCE_NOT_FOUND,
+            "Réservation introuvable",
+            404,
+            retry_possible=False,
+        )
+
     if (
         str(booking.tenant_id) != str(user["user_id"])
         and str(booking.owner_id) != str(user["user_id"])
         and user["role"] != "admin"
     ):
-        raise HTTPException(403, "Accès refusé")
+        return error_response(
+            ErrorCode.FORBIDDEN,
+            "Vous n'avez pas accès à cette réservation",
+            403,
+            retry_possible=False,
+        )
 
-    return booking
+    return ApiResponse.ok(booking, action="get_booking")
 
 
-# ── PATCH /bookings/{id}/status – changer le statut ─────────────────────────
-
-@router.patch("/{booking_id}/status", response_model=BookingOut)
+@router.patch("/{booking_id}/status", response_model=ApiResponse[BookingOut])
 async def update_booking_status(
     booking_id: UUID,
     payload: BookingStatusUpdate,
     user: dict = Depends(_get_user_id),
     db: Session = Depends(get_db),
 ):
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    auth_error = _check_user(user)
+    if auth_error:
+        return auth_error
+
+    try:
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    except SQLAlchemyError:
+        logger.exception("Erreur lors de la récupération de la réservation")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de charger la réservation, veuillez réessayer",
+            500,
+        )
+
     if not booking:
-        raise HTTPException(404, "Réservation introuvable")
+        return error_response(
+            ErrorCode.RESOURCE_NOT_FOUND,
+            "Réservation introuvable",
+            404,
+            retry_possible=False,
+        )
 
     new_status = payload.status
     current = booking.status
-
-    # Règles de transition
-    allowed_transitions: dict[str, dict[str, list[str]]] = {
-        "owner": {
-            "pending": ["accepted", "refused"],
-        },
-        "tenant": {
-            "pending": ["cancelled"],
-            "accepted": ["paid", "cancelled"],
-        },
-        "admin": {
-            "pending": ["cancelled"],
-            "accepted": ["cancelled"],
-            "paid": ["cancelled"],
-        },
-    }
-
     role = user["role"]
-    # Vérifier que l'utilisateur a le droit de modifier ce booking
-    if role == "owner" and str(booking.owner_id) != str(user["user_id"]):
-        raise HTTPException(403, "Accès refusé")
-    if role == "tenant" and str(booking.tenant_id) != str(user["user_id"]):
-        raise HTTPException(403, "Accès refusé")
 
-    transitions = allowed_transitions.get(role, {})
-    if current not in transitions or new_status not in transitions[current]:
-        raise HTTPException(
-            400,
-            f"Transition de '{current}' vers '{new_status}' non autorisée pour le rôle '{role}'",
+    if role == "owner" and str(booking.owner_id) != str(user["user_id"]):
+        return error_response(
+            ErrorCode.FORBIDDEN,
+            "Cette réservation ne concerne pas vos propriétés",
+            403,
+            retry_possible=False,
+        )
+    if role == "tenant" and str(booking.tenant_id) != str(user["user_id"]):
+        return error_response(
+            ErrorCode.FORBIDDEN,
+            "Cette réservation ne vous appartient pas",
+            403,
+            retry_possible=False,
         )
 
-    booking.status = new_status
-    db.commit()
-    db.refresh(booking)
+    if not can_transition(role, current, new_status):
+        status_label = BOOKING_STATUS_LABELS.get(current, current)
+        new_label = BOOKING_STATUS_LABELS.get(new_status, new_status)
+        available = STATUS_TRANSITIONS.get(role, {}).get(current, [])
+        return error_response(
+            ErrorCode.INVALID_STATUS_TRANSITION,
+            f"Impossible de passer de « {status_label} » à « {new_label} »",
+            400,
+            field="status",
+            retry_possible=False,
+            details={"current_status": current, "requested_status": new_status, "available_transitions": available},
+        )
 
-    # Publier l'événement
-    await publish_event("booking_events", f"booking.{new_status}", {
-        "booking_id": str(booking.id),
-        "tenant_id": str(booking.tenant_id),
-        "owner_id": str(booking.owner_id),
-        "property_id": str(booking.property_id),
-        "status": new_status,
-    })
+    try:
+        booking.status = new_status
+        db.commit()
+        db.refresh(booking)
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Erreur lors de la mise à jour du statut")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de mettre à jour la réservation, veuillez réessayer",
+            500,
+        )
 
-    return booking
+    _log_action(
+        "status_changed",
+        str(user["user_id"]),
+        str(booking.id),
+        {"from": current, "to": new_status, "role": role},
+    )
+
+    try:
+        await publish_event("booking_events", f"booking.{new_status}", {
+            "booking_id": str(booking.id),
+            "tenant_id": str(booking.tenant_id),
+            "owner_id": str(booking.owner_id),
+            "property_id": str(booking.property_id),
+            "status": new_status,
+        })
+    except Exception:
+        logger.warning(f"Impossible de publier l'événement booking.{new_status} (RabbitMQ)")
+
+    return ApiResponse.ok(
+        booking,
+        action="update_status",
+        meta={"previous_status": current, "new_status": new_status},
+    )
 
 
-# ── DELETE /bookings/{id} – annuler (raccourci) ─────────────────────────────
-
-@router.delete("/{booking_id}", status_code=204)
+@router.delete("/{booking_id}", response_model=ApiResponse[None], status_code=204)
 async def cancel_booking(
     booking_id: UUID,
     user: dict = Depends(_get_user_id),
     db: Session = Depends(get_db),
 ):
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    auth_error = _check_user(user)
+    if auth_error:
+        return auth_error
+
+    try:
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    except SQLAlchemyError:
+        logger.exception("Erreur lors de la récupération de la réservation")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de charger la réservation, veuillez réessayer",
+            500,
+        )
+
     if not booking:
-        raise HTTPException(404, "Réservation introuvable")
+        return error_response(
+            ErrorCode.RESOURCE_NOT_FOUND,
+            "Réservation introuvable",
+            404,
+            retry_possible=False,
+        )
 
     if str(booking.tenant_id) != str(user["user_id"]) and user["role"] != "admin":
-        raise HTTPException(403, "Seul le locataire ou un admin peut annuler")
+        return error_response(
+            ErrorCode.FORBIDDEN,
+            "Seul le locataire ou un administrateur peut annuler cette réservation",
+            403,
+            retry_possible=False,
+        )
 
-    if booking.status in ("refused", "cancelled"):
-        raise HTTPException(400, "Cette réservation est déjà terminée")
+    terminal_statuses = BOOKING_STATUS_VALUES[2:4]
+    if booking.status in terminal_statuses:
+        return error_response(
+            ErrorCode.ALREADY_TERMINAL,
+            "Cette réservation est déjà terminée et ne peut plus être annulée",
+            400,
+            field="status",
+            retry_possible=False,
+        )
 
-    booking.status = "cancelled"
-    db.commit()
+    if booking.status == BOOKABLE_STATUSES[2]:
+        return error_response(
+            ErrorCode.CANNOT_CANCEL_PAID,
+            "Impossible d'annuler une réservation déjà payée — contactez le support",
+            400,
+            retry_possible=False,
+        )
 
-    await publish_event("booking_events", "booking.cancelled", {
-        "booking_id": str(booking.id),
-        "tenant_id": str(booking.tenant_id),
-        "owner_id": str(booking.owner_id),
-        "property_id": str(booking.property_id),
-    })
+    previous_status = booking.status
+    try:
+        booking.status = BOOKING_STATUS_VALUES[4]
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Erreur lors de l'annulation")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible d'annuler la réservation, veuillez réessayer",
+            500,
+        )
+
+    _log_action(
+        "booking_cancelled",
+        str(user["user_id"]),
+        str(booking.id),
+        {"previous_status": previous_status},
+    )
+
+    try:
+        await publish_event("booking_events", "booking.cancelled", {
+            "booking_id": str(booking.id),
+            "tenant_id": str(booking.tenant_id),
+            "owner_id": str(booking.owner_id),
+            "property_id": str(booking.property_id),
+        })
+    except Exception:
+        logger.warning("Impossible de publier l'événement booking.cancelled (RabbitMQ)")
+
+    return ApiResponse.ok(
+        None,
+        action="cancel_booking",
+        meta={"booking_id": str(booking_id), "previous_status": previous_status},
+    )
 
 
-# ── POST /bookings/{id}/reviews – laisser un avis ───────────────────────────
-
-@router.post("/{booking_id}/reviews", response_model=ReviewOut, status_code=201)
+@router.post("/{booking_id}/reviews", response_model=ApiResponse[ReviewOut], status_code=201)
 def create_review(
     booking_id: UUID,
     payload: ReviewCreate,
     user: dict = Depends(_get_user_id),
     db: Session = Depends(get_db),
 ):
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    auth_error = _check_user(user)
+    if auth_error:
+        return auth_error
+
+    try:
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    except SQLAlchemyError:
+        logger.exception("Erreur lors de la récupération de la réservation")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de charger la réservation, veuillez réessayer",
+            500,
+        )
+
     if not booking:
-        raise HTTPException(404, "Réservation introuvable")
+        return error_response(
+            ErrorCode.RESOURCE_NOT_FOUND,
+            "Réservation introuvable",
+            404,
+            retry_possible=False,
+        )
 
-    # Seul un booking payé / terminé peut être évalué
-    if booking.status != "paid":
-        raise HTTPException(400, "Vous ne pouvez évaluer qu'une réservation payée")
+    if booking.status != BOOKABLE_STATUSES[2]:
+        return error_response(
+            ErrorCode.REVIEW_ONLY_PAID,
+            "Vous ne pouvez laisser un avis que sur une réservation payée",
+            400,
+            field="booking_status",
+            retry_possible=False,
+        )
 
-    # Seuls le locataire ou le propriétaire concernés peuvent évaluer
     if (
         str(booking.tenant_id) != str(user["user_id"])
         and str(booking.owner_id) != str(user["user_id"])
     ):
-        raise HTTPException(403, "Accès refusé")
-
-    # Vérifier qu'il n'a pas déjà laissé un avis du même type
-    existing = (
-        db.query(Review)
-        .filter(
-            Review.booking_id == booking_id,
-            Review.reviewer_id == user["user_id"],
-            Review.target_type == payload.target_type,
+        return error_response(
+            ErrorCode.FORBIDDEN,
+            "Vous n'êtes pas concerné par cette réservation",
+            403,
+            retry_possible=False,
         )
-        .first()
-    )
+
+    try:
+        existing = (
+            db.query(Review)
+            .filter(
+                Review.booking_id == booking_id,
+                Review.reviewer_id == user["user_id"],
+                Review.target_type == payload.target_type,
+            )
+            .first()
+        )
+    except SQLAlchemyError:
+        logger.exception("Erreur lors de la vérification des avis existants")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de vérifier vos avis existants, veuillez réessayer",
+            500,
+        )
+
     if existing:
-        raise HTTPException(409, "Vous avez déjà laissé un avis pour cette cible")
+        return error_response(
+            ErrorCode.ALREADY_REVIEWED,
+            "Vous avez déjà laissé un avis de ce type pour cette réservation",
+            409,
+            field="target_type",
+            retry_possible=False,
+        )
 
-    review = Review(
-        booking_id=booking_id,
-        reviewer_id=user["user_id"],
-        reviewed_id=payload.reviewed_id,
-        target_type=payload.target_type,
-        rating=payload.rating,
-        comment=payload.comment,
+    try:
+        review = Review(
+            booking_id=booking_id,
+            reviewer_id=user["user_id"],
+            reviewed_id=payload.reviewed_id,
+            target_type=payload.target_type,
+            rating=payload.rating,
+            comment=payload.comment,
+        )
+        db.add(review)
+        db.commit()
+        db.refresh(review)
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Erreur lors de la création de l'avis")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible d'enregistrer votre avis, veuillez réessayer",
+            500,
+        )
+
+    _log_action(
+        "review_created",
+        str(user["user_id"]),
+        str(review.id),
+        {"booking_id": str(booking_id), "rating": payload.rating, "target_type": payload.target_type},
     )
-    db.add(review)
-    db.commit()
-    db.refresh(review)
-    return review
+
+    return ApiResponse.ok(review, action="create_review", meta={"rating": payload.rating})
 
 
-# ── GET /bookings/{id}/reviews – voir les avis d'une réservation ────────────
-
-@router.get("/{booking_id}/reviews", response_model=list[ReviewOut])
+@router.get("/{booking_id}/reviews", response_model=ApiResponse[list[ReviewOut]])
 def list_reviews(
     booking_id: UUID,
     db: Session = Depends(get_db),
 ):
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    try:
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    except SQLAlchemyError:
+        logger.exception("Erreur lors de la récupération de la réservation")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de charger la réservation, veuillez réessayer",
+            500,
+        )
+
     if not booking:
-        raise HTTPException(404, "Réservation introuvable")
-    return db.query(Review).filter(Review.booking_id == booking_id).all()
+        return error_response(
+            ErrorCode.RESOURCE_NOT_FOUND,
+            "Réservation introuvable",
+            404,
+            retry_possible=False,
+        )
+
+    try:
+        reviews = db.query(Review).filter(Review.booking_id == booking_id).all()
+        return ApiResponse.ok(
+            reviews,
+            action="list_reviews",
+            meta={"count": len(reviews), "booking_id": str(booking_id)},
+        )
+    except SQLAlchemyError:
+        logger.exception("Erreur lors du chargement des avis")
+        return error_response(
+            ErrorCode.INTERNAL_ERROR,
+            "Impossible de charger les avis, veuillez réessayer",
+            500,
+        )
+
+
+@router.get("/config", response_model=ApiResponse[ConfigOut])
+def get_config():
+    return ApiResponse.ok(build_frontend_config(), action="get_config")
