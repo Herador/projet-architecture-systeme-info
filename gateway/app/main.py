@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, Query
+from typing import List
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 import time
@@ -35,6 +36,7 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 IDENTITY_SERVICE_URL = "http://identity-service:8000"
+SEARCH_SERVICE_URL   = "http://search-service:8000"
 
 
 # -----------------------------
@@ -75,8 +77,11 @@ def health():
 # IDENTITY SERVICE PROXY
 # -----------------------------
 
-def _forward(method: str, path: str, request: Request, payload: dict = None):
-    """Forward a request to the identity service, preserving status code and headers."""
+def _forward(method: str, path: str, request: Request, payload: dict = None, base_url: str = None):
+    """Forward a request to a service, preserving status code and headers."""
+    if base_url is None:
+        base_url = IDENTITY_SERVICE_URL
+
     headers = {}
     auth = request.headers.get("Authorization")
     if auth:
@@ -85,9 +90,10 @@ def _forward(method: str, path: str, request: Request, payload: dict = None):
     try:
         response = requests.request(
             method,
-            f"{IDENTITY_SERVICE_URL}{path}",
+            f"{base_url}{path}",
             json=payload,
             headers=headers,
+            params=list(request.query_params.multi_items()),
         )
         return Response(
             content=response.content,
@@ -133,3 +139,28 @@ def update(payload: dict, request: Request):
 @app.delete("/auth/delete")
 def delete(request: Request):
     return _forward("DELETE", "/auth/delete", request)
+
+@app.get("/search")
+def search(
+    request: Request,
+    keyword: str = None,
+    city: str = None,
+    min_price: float = None,
+    max_price: float = None,
+    num_rooms: int = None,
+    check_in: str = None,
+    check_out: str = None,
+    amenities: List[str] = Query(default=None),
+    lat: float = None,
+    lng: float = None,
+    radius_km: float = None,
+):
+    return _forward("GET", "/search", request, base_url=SEARCH_SERVICE_URL)
+
+@app.get("/search/map")
+def search_map(request: Request):
+    return _forward("GET", "/search/map", request, base_url=SEARCH_SERVICE_URL)
+
+@app.get("/search/{property_id}")
+def search_detail(property_id: str, request: Request):
+    return _forward("GET", f"/search/{property_id}", request, base_url=SEARCH_SERVICE_URL)

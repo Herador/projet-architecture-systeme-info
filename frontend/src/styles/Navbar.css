@@ -11,7 +11,6 @@
   z-index: 100;
 }
 
-/* ── Gauche : logo + navigation ── */
 .navbar-left {
   display: flex;
   align-items: center;
@@ -42,7 +41,54 @@
   color: #2563eb;
 }
 
-/* ── Droite : auth / user ── */
+.navbar-search-form {
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  overflow: hidden;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  width: 340px;
+}
+
+.navbar-search-form:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  background: #fff;
+}
+
+.navbar-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  color: #111;
+  outline: none;
+}
+
+.navbar-search-input::placeholder {
+  color: #9ca3af;
+}
+
+.navbar-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  height: 36px;
+  background: #2563eb;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  transition: background-color 0.2s;
+}
+
+.navbar-search-btn:hover {
+  background: #1d4ed8;
+}
+
 .navbar-right {
   display: flex;
   align-items: center;
@@ -84,7 +130,6 @@
   background-color: #1d4ed8;
 }
 
-/* ── Menu utilisateur ── */
 .navbar-user-menu {
   position: relative;
 }
@@ -128,7 +173,6 @@
   transform: rotate(180deg);
 }
 
-/* ── Dropdown ── */
 .navbar-dropdown {
   position: absolute;
   top: calc(100% + 8px);

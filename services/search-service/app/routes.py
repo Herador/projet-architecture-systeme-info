@@ -1,12 +1,10 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from typing import Optional, List
 from datetime import date
 from shared.database import get_db
-from shared.models import Property, Availability, AmenityEnum
-from app.schemas import PropertyResult, PropertyMapResult
-from app.security import get_optional_user
+from shared.models import Property, Availability
+from app.schemas import PropertyResult, PropertyMapResult, AmenityEnum
 import math
 
 router = APIRouter(prefix="/search")
@@ -23,9 +21,9 @@ def haversine(lat1, lng1, lat2, lng2) -> float:
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-# ── Recherche principale ──────────────────────────────────────────────────────
+# ------------- Recherche de logements avec filtres -------------------
 
-@router.get("/", response_model=list[PropertyResult])
+@router.get("", response_model=list[PropertyResult])
 def search_properties(
     keyword: Optional[str] = Query(None, description="Recherche dans le titre et la description"),
 
@@ -43,7 +41,6 @@ def search_properties(
     radius_km: Optional[float] = Query(None, description="Rayon en km autour de lat/lng"),
 
     db: Session = Depends(get_db),
-    user=Depends(get_optional_user)
 ):
     query = db.query(Property).filter(Property.status == "published")
 
@@ -64,9 +61,10 @@ def search_properties(
     if num_rooms is not None:
         query = query.filter(Property.num_rooms >= num_rooms)
 
-    # ── Filtres équipements ───────────────────────────────────────
-    # amenities est stocké "wifi,parking,piscine" → on cherche chaque valeur
-    query = query.filter(Property.amenities.contains(amenities))
+    # ── Filtres équipements (texte CSV : "wifi,parking,piscine") ──
+    if amenities:
+        for amenity in amenities:
+            query = query.filter(Property.amenities.ilike(f"%{amenity.value}%"))
 
     # ── Filtre disponibilité ──────────────────────────────────────
     if check_in and check_out:
@@ -80,7 +78,6 @@ def search_properties(
     results = query.all()
 
     # ── Filtre géographique (post-query, Haversine) ───────────────
-    # Note : pour une vraie prod → utiliser PostGIS
     if lat and lng and radius_km:
         results = [
             p for p in results
@@ -91,7 +88,7 @@ def search_properties(
     return results
 
 
-# ── Endpoint carte (données allégées pour Leaflet) ────────────────────────────
+# ------------ Marqueurs pour la carte -------------------
 
 @router.get("/map", response_model=list[PropertyMapResult])
 def get_map_markers(
@@ -125,7 +122,7 @@ def get_map_markers(
     return results
 
 
-# ── Détail d'un logement ──────────────────────────────────────────────────────
+# ------------ Détail d'un logement -------------------
 
 @router.get("/{property_id}", response_model=PropertyResult)
 def get_property_detail(property_id: str, db: Session = Depends(get_db)):
