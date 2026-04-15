@@ -48,6 +48,24 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
       - db
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  booking-service:
+    build:
+      context: .
+      dockerfile: services/booking-service/Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+    depends_on:
+      - db
+      - rabbitmq
 
   frontend:
    build: ./frontend
@@ -55,38 +73,16 @@ services:
      - "5173:5173"
    depends_on:
      - gateway
-     
+
 volumes:
   postgres_data:
 
-#  rabbitmq:
-#    image: rabbitmq:3-management
-#    ports:
-#      - "5672:5672"
-#      - "15672:15672"
-#
-#  search-service:
-#    build: ./services/search-service
-#    environment:
-#      DATABASE_URL: ${DATABASE_URL}
-#    depends_on:
-#      - db
-#
 #  catalog-service:
 #    build: ./services/catalog-service
 #    environment:
 #      DATABASE_URL: ${DATABASE_URL}
 #    depends_on:
 #      - db
-#
-#  booking-service:
-#    build: ./services/booking-service
-#    environment:
-#      DATABASE_URL: ${DATABASE_URL}
-#      RABBITMQ_URL: ${RABBITMQ_URL}
-#    depends_on:
-#      - db
-#      - rabbitmq
 #
 #  interaction-service:
 #    build: ./services/interaction-service

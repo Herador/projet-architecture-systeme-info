@@ -39,6 +39,9 @@ export default function Navbar() {
         <Link to="/" className="navbar-brand-link">
           RentalApp
         </Link>
+        <div className="navbar-nav">
+          {user && <Link to="/bookings" className="navbar-link">Réservations</Link>}
+        </div>
       </div>
 
       <form className="navbar-search-form" onSubmit={handleSearch}>

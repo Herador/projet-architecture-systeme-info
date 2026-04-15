@@ -6,6 +6,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, declarative_base
 
+from shared.config import (
+    USER_ROLE_VALUES,
+    PROPERTY_STATUS_VALUES,
+    BOOKING_STATUS_VALUES,
+)
+
 Base = declarative_base()
 
 def new_uuid():
@@ -21,7 +27,7 @@ class User(Base):
     username         = Column(String(50), unique=True, nullable=False)
     email            = Column(String(255), unique=True, nullable=False)
     hashed_password  = Column(String(255), nullable=False)
-    role             = Column(String(20), nullable=False, default="tenant")  # tenant / owner / admin
+    role             = Column(String(20), nullable=False, default=USER_ROLE_VALUES[0] if USER_ROLE_VALUES else "tenant")
     is_verified      = Column(Boolean, default=False)
 
     # relations
@@ -58,8 +64,8 @@ class Property(Base):
     longitude        = Column(Float)
     price_per_night  = Column(Numeric(10, 2))
     num_rooms        = Column(Integer)
-    amenities        = Column(Text)          # ex: "wifi,parking,piscine"
-    status           = Column(String(20), default="draft")  # draft / published / archived
+    amenities        = Column(Text)
+    status           = Column(String(20), default=PROPERTY_STATUS_VALUES[0] if PROPERTY_STATUS_VALUES else "draft")
     created_at       = Column(DateTime, server_default=func.now())
     updated_at       = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -92,7 +98,7 @@ class Booking(Base):
     check_in     = Column(Date, nullable=False)
     check_out    = Column(Date, nullable=False)
     total_price  = Column(Numeric(10, 2))
-    status       = Column(String(20), default="pending")  # pending / accepted / refused / paid / cancelled
+    status       = Column(String(20), default=BOOKING_STATUS_VALUES[0] if BOOKING_STATUS_VALUES else "pending")
     created_at   = Column(DateTime, server_default=func.now())
     updated_at   = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
