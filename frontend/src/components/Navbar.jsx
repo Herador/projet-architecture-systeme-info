@@ -5,7 +5,7 @@ import "../styles/Navbar.css";
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const { user, logout, becomeOwner } = useAuth();
+  const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef(null);
@@ -19,11 +19,6 @@ export default function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  async function handleBecomeOwner() {
-    setDropdownOpen(false);
-    await becomeOwner();
-  }
 
   function handleLogout() {
     setDropdownOpen(false);
@@ -80,6 +75,24 @@ export default function Navbar() {
 
             {dropdownOpen && (
               <div className="navbar-dropdown">
+                <Link
+                  to="/profile"
+                  className="navbar-dropdown-item"
+                  style={{ display: "block", textDecoration: "none", color: "inherit" }}
+                  onClick={() => setDropdownOpen(false)}
+                >
+                  Mon profil
+                </Link>
+                {user.role === "admin" && (
+                  <Link
+                    to="/admin"
+                    className="navbar-dropdown-item"
+                    style={{ display: "block", textDecoration: "none", color: "#7c3aed" }}
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Dashboard admin
+                  </Link>
+                )}
                 {user.role === "owner" && (
                   <Link
                     to="/properties/new"
@@ -91,9 +104,14 @@ export default function Navbar() {
                   </Link>
                 )}
                 {user.role === "tenant" && (
-                  <button className="navbar-dropdown-item" onClick={handleBecomeOwner}>
+                  <Link
+                    to="/become-owner"
+                    className="navbar-dropdown-item"
+                    style={{ display: "block", textDecoration: "none", color: "inherit" }}
+                    onClick={() => setDropdownOpen(false)}
+                  >
                     Devenir propriétaire
-                  </button>
+                  </Link>
                 )}
                 <button className="navbar-dropdown-item navbar-dropdown-item--danger" onClick={handleLogout}>
                   Déconnexion

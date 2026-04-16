@@ -1,0 +1,307 @@
+.valident-page {
+  min-height: calc(100vh - 60px);
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1rem;
+}
+
+.valident-empty {
+  text-align: center;
+  color: #6b7280;
+  margin-top: 3rem;
+  font-size: 1rem;
+}
+
+.valident-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* Header */
+.valident-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 2rem;
+  gap: 0.75rem;
+}
+
+.valident-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+}
+
+.valident-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.valident-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+}
+
+.valident-subtitle {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+  max-width: 380px;
+}
+
+/* Form */
+.valident-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.valident-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.valident-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.valident-required {
+  color: #e53e3e;
+  margin-left: 2px;
+}
+
+.valident-input {
+  padding: 0.65rem 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #111;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #fff;
+}
+
+.valident-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.valident-input--readonly {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.valident-hint {
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+/* Upload area */
+.valident-upload {
+  position: relative;
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.valident-upload:hover {
+  border-color: #2563eb;
+  background-color: #f8faff;
+}
+
+.valident-upload--filled {
+  border-color: #16a34a;
+  background-color: #f0fdf4;
+}
+
+.valident-upload-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.valident-upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.5rem;
+  cursor: pointer;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.valident-upload--filled .valident-upload-label {
+  color: #16a34a;
+}
+
+.valident-upload-label svg {
+  color: #9ca3af;
+}
+
+.valident-upload--filled .valident-upload-label svg {
+  color: #16a34a;
+}
+
+.valident-upload-hint {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+/* Error */
+.valident-error {
+  color: #e53e3e;
+  background-color: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+/* Primary button */
+.valident-btn-primary {
+  padding: 0.75rem 1.5rem;
+  background-color: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.valident-btn-primary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.valident-btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.valident-btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+/* Spinner */
+.valident-spinner {
+  width: 18px;
+  height: 18px;
+  animation: valident-spin 0.75s linear infinite;
+}
+
+.valident-spinner-track {
+  opacity: 0.25;
+}
+
+.valident-spinner-arc {
+  opacity: 0.75;
+}
+
+@keyframes valident-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Success state */
+.valident-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.valident-success-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background-color: #f0fdf4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #16a34a;
+}
+
+.valident-success-icon svg {
+  width: 40px;
+  height: 40px;
+}
+
+.valident-success-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+}
+
+.valident-success-text {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Already owner state */
+.valident-already-owner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  color: #2563eb;
+}
+
+.valident-already-owner svg {
+  width: 48px;
+  height: 48px;
+}
+
+.valident-already-owner h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+}
+
+.valident-already-owner p {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0;
+}

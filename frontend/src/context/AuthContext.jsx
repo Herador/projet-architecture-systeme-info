@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import axios from "axios";
 
 const API_URL = "http://localhost:3000";
@@ -8,6 +8,28 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const interceptorRef = useRef(null);
+
+  function _clearSession() {
+    localStorage.removeItem("token");
+    setUser(null);
+  }
+
+  // Global 401 interceptor — fires on any axios response with status 401
+  useEffect(() => {
+    interceptorRef.current = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          _clearSession();
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => {
+      axios.interceptors.response.eject(interceptorRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -20,7 +42,7 @@ export function AuthProvider({ children }) {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => setUser(res.data))
-      .catch(() => localStorage.removeItem("token"))
+      .catch(() => _clearSession())
       .finally(() => setLoading(false));
   }, []);
 
@@ -37,10 +59,7 @@ export function AuthProvider({ children }) {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      .finally(() => {
-        localStorage.removeItem("token");
-        setUser(null);
-      });
+      .finally(() => _clearSession());
   }
 
   async function becomeOwner() {

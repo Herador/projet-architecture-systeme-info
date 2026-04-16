@@ -10,6 +10,9 @@ import EditProperty from "./pages/EditProperty";
 import MyProperties from "./pages/MyProperties";
 import Search from "./pages/Search";
 import Booking from "./pages/Booking";
+import UserInfo from "./pages/UserInfo";
+import ValidationIdentity from "./pages/ValidationIdentity";
+import AdminDashboard from "./pages/AdminDashboard";
 
 export default function App() {
   return (
@@ -26,6 +29,9 @@ export default function App() {
           <Route path="/my-properties" element={<MyProperties />} />
           <Route path="/search" element={<Search />} />
           <Route path="/bookings" element={<Booking />} />
+          <Route path="/profile" element={<UserInfo />} />
+          <Route path="/become-owner" element={<ValidationIdentity />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

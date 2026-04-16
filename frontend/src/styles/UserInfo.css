@@ -1,0 +1,174 @@
+.userinfo-page {
+  min-height: calc(100vh - 60px);
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1rem;
+}
+
+.userinfo-empty {
+  text-align: center;
+  color: #6b7280;
+  margin-top: 3rem;
+  font-size: 1rem;
+}
+
+.userinfo-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.userinfo-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+
+.userinfo-avatar-icon {
+  width: 44px;
+  height: 44px;
+  color: #2563eb;
+}
+
+.userinfo-username {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+}
+
+.userinfo-role-badge {
+  display: inline-block;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.userinfo-role-badge--owner {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.userinfo-role-badge--tenant {
+  background-color: #f0fdf4;
+  color: #16a34a;
+}
+
+.userinfo-fields {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.userinfo-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.userinfo-field:last-child {
+  border-bottom: none;
+}
+
+.userinfo-field-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.userinfo-field-value {
+  font-size: 0.9rem;
+  color: #111;
+  font-weight: 600;
+}
+
+.userinfo-become-owner {
+  width: 100%;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.userinfo-become-owner-text {
+  font-size: 0.875rem;
+  color: #92400e;
+  margin: 0;
+}
+
+.userinfo-become-owner-btn {
+  display: inline-block;
+  text-align: center;
+  padding: 0.55rem 1.25rem;
+  background-color: #f59e0b;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background-color 0.2s;
+  align-self: flex-start;
+}
+
+.userinfo-become-owner-btn:hover {
+  background-color: #d97706;
+}
+
+.userinfo-owner-actions {
+  width: 100%;
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.userinfo-action-btn {
+  flex: 1;
+  text-align: center;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  color: #333;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.userinfo-action-btn:hover {
+  background-color: #f3f4f6;
+}
+
+.userinfo-action-btn--primary {
+  background-color: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.userinfo-action-btn--primary:hover {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}

@@ -41,6 +41,7 @@ IDENTITY_SERVICE_URL = "http://identity-service:8000"
 CATALOG_SERVICE_URL = "http://catalog-service:8000"
 SEARCH_SERVICE_URL   = "http://search-service:8000"
 BOOKING_SERVICE_URL = "http://booking-service:8000"
+ADMIN_SERVICE_URL   = "http://admin-service:8000"
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET")
 
@@ -366,3 +367,80 @@ def cancel_booking(booking_id: str, request: Request):
 @app.get("/bookings/{booking_id}")
 def get_booking(booking_id: str, request: Request):
     return _forward_booking("GET", f"/bookings/{booking_id}", request)
+
+
+# -----------------------------
+# ADMIN SERVICE PROXY
+# -----------------------------
+
+def _forward_admin(method: str, path: str, request: Request, payload: dict = None):
+    """Decode JWT, enforce admin role, forward to admin service with identity headers."""
+    user = _decode_token(request)
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Accès réservé aux administrateurs")
+
+    headers = {
+        "x-user-id": user["user_id"],
+        "x-user-role": user["role"],
+        "Content-Type": "application/json",
+    }
+    try:
+        response = requests.request(
+            method,
+            f"{ADMIN_SERVICE_URL}{path}",
+            json=payload,
+            headers=headers,
+            params=list(request.query_params.multi_items()),
+        )
+        return Response(
+            content=response.content,
+            status_code=response.status_code,
+            media_type="application/json",
+        )
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/admin/stats")
+def admin_stats(request: Request):
+    return _forward_admin("GET", "/admin/stats", request)
+
+
+@app.get("/admin/users")
+def admin_list_users(request: Request):
+    return _forward_admin("GET", "/admin/users", request)
+
+
+@app.patch("/admin/users/{user_id}/role")
+def admin_update_user_role(user_id: str, payload: dict, request: Request):
+    return _forward_admin("PATCH", f"/admin/users/{user_id}/role", request, payload)
+
+
+@app.delete("/admin/users/{user_id}")
+def admin_delete_user(user_id: str, request: Request):
+    return _forward_admin("DELETE", f"/admin/users/{user_id}", request)
+
+
+@app.get("/admin/properties")
+def admin_list_properties(request: Request):
+    return _forward_admin("GET", "/admin/properties", request)
+
+
+@app.patch("/admin/properties/{property_id}/status")
+def admin_update_property_status(property_id: str, payload: dict, request: Request):
+    return _forward_admin("PATCH", f"/admin/properties/{property_id}/status", request, payload)
+
+
+@app.delete("/admin/properties/{property_id}")
+def admin_delete_property(property_id: str, request: Request):
+    return _forward_admin("DELETE", f"/admin/properties/{property_id}", request)
+
+
+@app.get("/admin/bookings")
+def admin_list_bookings(request: Request):
+    return _forward_admin("GET", "/admin/bookings", request)
+
+
+@app.delete("/admin/bookings/{booking_id}")
+def admin_cancel_booking(booking_id: str, request: Request):
+    return _forward_admin("DELETE", f"/admin/bookings/{booking_id}", request)
