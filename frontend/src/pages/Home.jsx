@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import heroImg from "../assets/hero.jpg";
@@ -12,6 +12,45 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState({ city: "", check_in: "", check_out: "", num_rooms: "" });
   const [validationError, setValidationError] = useState(false);
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
+  const [geoRadius, setGeoRadius] = useState(10);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState(null);
+  const cityWrapperRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (cityWrapperRef.current && !cityWrapperRef.current.contains(e.target)) {
+        setCityDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleGeoSearch() {
+    if (!navigator.geolocation) {
+      setGeoError("Géolocalisation non supportée par ce navigateur.");
+      return;
+    }
+    setGeoLoading(true);
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setGeoLoading(false);
+        setCityDropdownOpen(false);
+        const params = new URLSearchParams();
+        params.set("lat", pos.coords.latitude);
+        params.set("lng", pos.coords.longitude);
+        params.set("radius_km", geoRadius);
+        navigate(`/search?${params.toString()}`);
+      },
+      () => {
+        setGeoLoading(false);
+        setGeoError("Position refusée ou indisponible.");
+      }
+    );
+  }
 
   useEffect(() => {
     axios
@@ -52,7 +91,7 @@ export default function Home() {
 
         <div className="home-search-wrapper">
         <form className="home-search-bar" onSubmit={handleSearch}>
-          <div className="home-search-field">
+          <div className="home-search-field home-city-wrapper" ref={cityWrapperRef}>
             <span className="home-search-field-label">
               <PinIcon /> Ville ou destination
             </span>
@@ -62,7 +101,36 @@ export default function Home() {
               placeholder="Paris, Lyon..."
               value={search.city}
               onChange={e => setSearch(s => ({ ...s, city: e.target.value }))}
+              onFocus={() => setCityDropdownOpen(true)}
+              autoComplete="off"
             />
+            {cityDropdownOpen && (
+              <div className="home-city-dropdown">
+                <button
+                  type="button"
+                  className={`home-city-geo-option${geoLoading ? " home-city-geo-option--loading" : ""}`}
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={handleGeoSearch}
+                  disabled={geoLoading}
+                >
+                  <GeoIcon />
+                  <span>{geoLoading ? "Localisation en cours..." : "Utiliser ma position actuelle"}</span>
+                </button>
+                <div className="home-city-geo-radius">
+                  <span className="home-city-geo-radius-label">Rayon</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="100"
+                    value={geoRadius}
+                    onChange={e => setGeoRadius(e.target.value)}
+                    className="home-city-geo-slider"
+                  />
+                  <span className="home-city-geo-radius-value">{geoRadius} km</span>
+                </div>
+                {geoError && <p className="home-city-geo-error">{geoError}</p>}
+              </div>
+            )}
           </div>
 
           <div className="home-search-divider" />
@@ -118,6 +186,7 @@ export default function Home() {
             Veuillez renseigner au moins un champ pour lancer la recherche.
           </p>
         )}
+
         </div>
       </section>
 
@@ -157,6 +226,16 @@ export default function Home() {
       </section>
 
     </div>
+  );
+}
+
+function GeoIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+    </svg>
   );
 }
 

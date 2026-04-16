@@ -1,11 +1,12 @@
+/* ---------- Page ---------- */
 .booking-page {
-  min-height: 100vh;
-  background-color: #f5f5f5;
-  padding: 2rem 1rem;
+  min-height: calc(100vh - 62px);
+  background: #fafaf9;
+  padding: 3rem 1.5rem 5rem;
 }
 
 .booking-container {
-  max-width: 900px;
+  max-width: 860px;
   margin: 0 auto;
 }
 
@@ -13,26 +14,30 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .booking-header h1 {
-  font-size: 1.6rem;
+  font-size: 1.45rem;
   font-weight: 700;
-  color: #111;
+  color: #1a1410;
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
-/* ── Boutons ─────────────────────────────── */
-
+/* ---------- Boutons ---------- */
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.55rem 1.1rem;
   border: none;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background 0.2s;
+  font-family: inherit;
 }
 
 .btn:disabled {
@@ -41,49 +46,50 @@
 }
 
 .btn-primary {
-  background-color: #2563eb;
-  color: #fff;
+  background: #3b2f27;
+  color: #fdf8f4;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #1d4ed8;
+  background: #2a201a;
 }
 
 .btn-success {
-  background-color: #16a34a;
+  background: #16a34a;
   color: #fff;
 }
 
 .btn-success:hover:not(:disabled) {
-  background-color: #15803d;
+  background: #15803d;
 }
 
 .btn-danger {
-  background-color: #e53e3e;
+  background: #dc2626;
   color: #fff;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #c53030;
+  background: #b91c1c;
 }
 
 .btn-warning {
-  background-color: #f59e0b;
+  background: #b07a55;
   color: #fff;
 }
 
 .btn-warning:hover:not(:disabled) {
-  background-color: #d97706;
+  background: #9a6744;
 }
 
 .btn-secondary {
-  background-color: transparent;
-  color: #333;
-  border: 1px solid #e5e7eb;
+  background: #f5f2ee;
+  color: #5a4a3f;
+  border: 1px solid #e8e2da;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: #f3f4f6;
+  background: #ede8e2;
+  color: #3b2f27;
 }
 
 .btn-sm {
@@ -91,102 +97,137 @@
   font-size: 0.8rem;
 }
 
-/* ── Filtres ─────────────────────────────── */
-
+/* ---------- Filtres ---------- */
 .booking-filters {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
 }
 
 .filter-btn {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid #ddd;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid #e8e2da;
   border-radius: 20px;
   background: #fff;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 500;
-  color: #555;
+  color: #7a6a5f;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
+  font-family: inherit;
 }
 
 .filter-btn:hover {
-  border-color: #2563eb;
-  color: #2563eb;
+  border-color: #c4b8ad;
+  color: #3b2f27;
 }
 
 .filter-btn.active {
-  background-color: #2563eb;
-  border-color: #2563eb;
+  background: #3b2f27;
+  border-color: #3b2f27;
   color: #fff;
 }
 
-/* ── Liste des réservations ──────────────── */
+/* ---------- Flash messages ---------- */
+.booking-message {
+  padding: 0.65rem 1rem;
+  border-radius: 9px;
+  margin-bottom: 1.25rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
 
+.booking-message.success {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.booking-message.error {
+  background: rgba(160, 82, 45, 0.07);
+  color: #a0522d;
+  border: 1px solid rgba(160, 82, 45, 0.18);
+}
+
+/* ---------- États ---------- */
+.booking-loading,
+.booking-empty {
+  text-align: center;
+  color: #9e8d82;
+  padding: 4rem 0;
+  font-size: 0.95rem;
+}
+
+.booking-empty p {
+  margin: 0;
+}
+
+/* ---------- Liste ---------- */
 .booking-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
+/* ---------- Card ---------- */
 .booking-card {
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid #e8e2da;
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
   transition: box-shadow 0.2s;
 }
 
 .booking-card:hover {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 20px rgba(59, 47, 39, 0.07);
 }
 
 .booking-card-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .booking-card-title {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #111;
+  color: #1a1410;
   margin: 0;
 }
 
 .booking-card-id {
   font-size: 0.75rem;
-  color: #999;
-  margin-top: 0.2rem;
+  color: #c4b8ad;
+  margin: 0.2rem 0 0;
+  font-family: monospace;
 }
 
 .booking-card-body {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
   margin-bottom: 1rem;
 }
 
 .booking-info {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .booking-info-label {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: #888;
+  color: #9e8d82;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
 }
 
 .booking-info-value {
-  font-size: 0.95rem;
-  color: #333;
+  font-size: 0.93rem;
+  color: #3b2f27;
   font-weight: 500;
 }
 
@@ -194,170 +235,52 @@
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  border-top: 1px solid #e5e7eb;
-  padding-top: 0.75rem;
+  border-top: 1px solid #e8e2da;
+  padding-top: 0.85rem;
 }
 
-/* ── Badges de statut ────────────────────── */
-
+/* ---------- Badges statut ---------- */
 .status-badge {
   display: inline-block;
-  padding: 0.2rem 0.65rem;
+  padding: 0.25rem 0.7rem;
   border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.status-pending {
-  background-color: #fef3c7;
-  color: #92400e;
-}
-
-.status-accepted {
-  background-color: #d1fae5;
-  color: #065f46;
-}
-
-.status-paid {
-  background-color: #dbeafe;
-  color: #1e40af;
-}
-
-.status-refused {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.status-cancelled {
-  background-color: #f3f4f6;
-  color: #6b7280;
-}
-
-/* ── Modal / Formulaire ──────────────────── */
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-}
-
-.modal-card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  padding: 2.5rem;
-  width: 100%;
-  max-width: 420px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-card h2 {
-  margin: 0 0 1.5rem;
-  font-size: 1.6rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  color: #111;
-  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 1rem;
-}
+.status-pending   { background: #fef3c7; color: #92400e; }
+.status-accepted  { background: #d1fae5; color: #065f46; }
+.status-paid      { background: #e0f2fe; color: #075985; }
+.status-refused   { background: #fee2e2; color: #991b1b; }
+.status-cancelled { background: #f3f4f6; color: #6b7280; }
 
-.form-group label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #444;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  padding: 0.65rem 0.9rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  border-color: #2563eb;
-}
-
-.form-group textarea {
-  resize: vertical;
-  min-height: 70px;
-}
-
-.form-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
-  margin-top: 1.25rem;
-}
-
-.form-error {
-  color: #e53e3e;
-  font-size: 0.875rem;
-  margin: 0 0 0.75rem;
-}
-
-/* ── Stars (avis) ────────────────────────── */
-
-.stars {
-  display: flex;
-  gap: 0.2rem;
-}
-
-.star {
-  cursor: pointer;
-  font-size: 1.4rem;
-  color: #ddd;
-  transition: color 0.15s;
-  background: none;
-  border: none;
-  padding: 0;
-}
-
-.star.filled {
-  color: #f59e0b;
-}
-
-.star:hover {
-  color: #f59e0b;
-}
-
-/* ── Reviews list ────────────────────────── */
-
+/* ---------- Avis ---------- */
 .reviews-section {
   margin-top: 1rem;
-  border-top: 1px solid #e5e7eb;
-  padding-top: 0.75rem;
+  border-top: 1px solid #e8e2da;
+  padding-top: 0.85rem;
 }
 
 .reviews-section h4 {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #555;
-  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #9e8d82;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.65rem;
+}
+
+.reviews-empty {
+  font-size: 0.85rem;
+  color: #c4b8ad;
 }
 
 .review-item {
-  background: #f3f4f6;
-  border-radius: 8px;
-  padding: 0.6rem 0.8rem;
+  background: #f5f2ee;
+  border-radius: 9px;
+  padding: 0.65rem 0.85rem;
   margin-bottom: 0.5rem;
 }
 
@@ -368,60 +291,134 @@
   margin-bottom: 0.25rem;
 }
 
-.review-stars {
-  color: #f59e0b;
-  font-size: 0.875rem;
-}
+.review-stars { color: #b07a55; font-size: 0.88rem; }
 
 .review-date {
-  font-size: 0.75rem;
-  color: #999;
+  font-size: 0.72rem;
+  color: #c4b8ad;
 }
 
 .review-comment {
-  font-size: 0.875rem;
-  color: #444;
+  font-size: 0.85rem;
+  color: #5a4a3f;
   margin: 0;
 }
 
-/* ── Empty state ─────────────────────────── */
+/* ---------- Modal ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 20, 16, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 1rem;
+}
 
-.booking-empty {
+.modal-card {
+  background: #fff;
+  border: 1px solid #e8e2da;
+  border-radius: 18px;
+  box-shadow: 0 16px 48px rgba(59, 47, 39, 0.16);
+  padding: 2rem 2rem 1.75rem;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-card h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1a1410;
+  letter-spacing: -0.02em;
+  margin: 0 0 1.5rem;
   text-align: center;
-  padding: 3rem 1rem;
-  color: #555;
 }
 
-.booking-empty p {
-  font-size: 0.9rem;
-  margin: 0 0 1rem;
-}
-
-/* ── Messages ────────────────────────────── */
-
-.booking-message {
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+/* ---------- Formulaire modal ---------- */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
   margin-bottom: 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
 }
 
-.booking-message.success {
-  background-color: #d1fae5;
-  color: #065f46;
+.form-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #9e8d82;
 }
 
-.booking-message.error {
-  background-color: #fee2e2;
-  color: #991b1b;
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 0.65rem 0.9rem;
+  border: 1px solid #e8e2da;
+  border-radius: 9px;
+  font-size: 0.93rem;
+  color: #3b2f27;
+  background: #fafaf9;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
 }
 
-/* ── Loading ─────────────────────────────── */
-
-.booking-loading {
-  text-align: center;
-  padding: 3rem;
-  color: #555;
-  font-size: 0.9rem;
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #b07a55;
+  box-shadow: 0 0 0 3px rgba(176, 122, 85, 0.12);
+  background: #fff;
 }
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.form-property-hint {
+  font-size: 0.82rem;
+  color: #9e8d82;
+  margin: -0.5rem 0 0.75rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+}
+
+.form-error {
+  font-size: 0.83rem;
+  color: #a0522d;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(160, 82, 45, 0.07);
+  border-radius: 7px;
+  border: 1px solid rgba(160, 82, 45, 0.18);
+}
+
+/* ---------- Étoiles ---------- */
+.stars {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.star {
+  cursor: pointer;
+  font-size: 1.5rem;
+  color: #e8e2da;
+  transition: color 0.15s;
+  background: none;
+  border: none;
+  padding: 0;
+  line-height: 1;
+}
+
+.star.filled { color: #b07a55; }
+.star:hover  { color: #b07a55; }

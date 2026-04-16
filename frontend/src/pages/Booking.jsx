@@ -379,9 +379,7 @@ export default function Booking() {
                   <div className="reviews-section">
                     <h4>Avis ({expandedReviews[b.id].length})</h4>
                     {expandedReviews[b.id].length === 0 ? (
-                      <p style={{ fontSize: "0.85rem", color: "#888" }}>
-                        Aucun avis pour cette réservation
-                      </p>
+                      <p className="reviews-empty">Aucun avis pour cette réservation</p>
                     ) : (
                       expandedReviews[b.id].map((r) => (
                         <div key={r.id} className="review-item">
@@ -497,11 +495,9 @@ function CreateBookingModal({ config, onClose, onCreated }) {
           <div className="form-group">
             <label>Propriété</label>
             {loadingProps ? (
-              <p style={{ fontSize: "0.875rem", color: "#555" }}>Chargement...</p>
+              <p className="form-property-hint">Chargement...</p>
             ) : properties.length === 0 ? (
-              <p style={{ fontSize: "0.875rem", color: "#555" }}>
-                Aucune propriété disponible
-              </p>
+              <p className="form-property-hint">Aucune propriété disponible</p>
             ) : (
               <select
                 value={propertyId}
@@ -518,16 +514,10 @@ function CreateBookingModal({ config, onClose, onCreated }) {
             )}
           </div>
           {selected && (
-            <div
-              style={{
-                fontSize: "0.85rem",
-                color: "#555",
-                marginBottom: "1rem",
-              }}
-            >
+            <p className="form-property-hint">
               {selected.address && <span>{selected.address} · </span>}
               {selected.num_rooms && <span>{selected.num_rooms} pièces</span>}
-            </div>
+            </p>
           )}
           <div className="form-group">
             <label>Date d'arrivée</label>

@@ -1,6 +1,7 @@
+/* ---------- Page ---------- */
 .userinfo-page {
   min-height: calc(100vh - 60px);
-  background-color: #f3f4f6;
+  background: #fafaf9;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -9,29 +10,33 @@
 
 .userinfo-empty {
   text-align: center;
-  color: #6b7280;
+  color: #9e8d82;
   margin-top: 3rem;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
+/* ---------- Card ---------- */
 .userinfo-card {
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e8e2da;
+  border-radius: 18px;
+  box-shadow: 0 4px 24px rgba(59, 47, 39, 0.08);
   padding: 2.5rem 2rem;
   width: 100%;
-  max-width: 480px;
+  max-width: 460px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
 }
 
+/* ---------- Avatar ---------- */
 .userinfo-avatar {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background-color: #eff6ff;
+  background: #f0ede8;
+  border: 2px solid #e8e2da;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -39,41 +44,49 @@
 }
 
 .userinfo-avatar-icon {
-  width: 44px;
-  height: 44px;
-  color: #2563eb;
+  width: 42px;
+  height: 42px;
+  color: #b07a55;
 }
 
+/* ---------- Username ---------- */
 .userinfo-username {
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  color: #111;
+  color: #1a1410;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
+/* ---------- Role badge ---------- */
 .userinfo-role-badge {
   display: inline-block;
   padding: 0.3rem 0.9rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
 }
 
 .userinfo-role-badge--owner {
-  background-color: #eff6ff;
-  color: #2563eb;
+  background: #fef3e2;
+  color: #92400e;
+  border-color: #f6d28d;
 }
 
 .userinfo-role-badge--tenant {
-  background-color: #f0fdf4;
-  color: #16a34a;
+  background: #f0ede8;
+  color: #5a4a3f;
+  border-color: #d4c9bf;
 }
 
+/* ---------- Fields ---------- */
 .userinfo-fields {
   width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border: 1px solid #e8e2da;
+  border-radius: 12px;
   overflow: hidden;
   margin-top: 0.5rem;
 }
@@ -83,7 +96,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.85rem 1.1rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e8e2da;
 }
 
 .userinfo-field:last-child {
@@ -91,22 +104,25 @@
 }
 
 .userinfo-field-label {
-  font-size: 0.875rem;
-  color: #6b7280;
-  font-weight: 500;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #9e8d82;
 }
 
 .userinfo-field-value {
   font-size: 0.9rem;
-  color: #111;
+  color: #3b2f27;
   font-weight: 600;
 }
 
+/* ---------- Become owner ---------- */
 .userinfo-become-owner {
   width: 100%;
-  background-color: #fffbeb;
-  border: 1px solid #fde68a;
-  border-radius: 10px;
+  background: #fef8f0;
+  border: 1px solid #e8d5b7;
+  border-radius: 12px;
   padding: 1rem 1.1rem;
   display: flex;
   flex-direction: column;
@@ -116,28 +132,30 @@
 
 .userinfo-become-owner-text {
   font-size: 0.875rem;
-  color: #92400e;
+  color: #5a4a3f;
   margin: 0;
+  line-height: 1.5;
 }
 
 .userinfo-become-owner-btn {
   display: inline-block;
   text-align: center;
   padding: 0.55rem 1.25rem;
-  background-color: #f59e0b;
+  background: #b07a55;
   color: #fff;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   border-radius: 8px;
   text-decoration: none;
-  transition: background-color 0.2s;
+  transition: background 0.2s;
   align-self: flex-start;
 }
 
 .userinfo-become-owner-btn:hover {
-  background-color: #d97706;
+  background: #9a6744;
 }
 
+/* ---------- Action buttons ---------- */
 .userinfo-owner-actions {
   width: 100%;
   display: flex;
@@ -150,25 +168,26 @@
   text-align: center;
   padding: 0.6rem 1rem;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  color: #333;
+  border: 1px solid #e8e2da;
+  color: #3b2f27;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   text-decoration: none;
-  transition: background-color 0.2s;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .userinfo-action-btn:hover {
-  background-color: #f3f4f6;
+  background: #f0ede8;
+  border-color: #d4c9bf;
 }
 
 .userinfo-action-btn--primary {
-  background-color: #2563eb;
+  background: #3b2f27;
   color: #fff;
-  border-color: #2563eb;
+  border-color: #3b2f27;
 }
 
 .userinfo-action-btn--primary:hover {
-  background-color: #1d4ed8;
-  border-color: #1d4ed8;
+  background: #2a2019;
+  border-color: #2a2019;
 }
