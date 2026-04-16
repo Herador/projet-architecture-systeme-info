@@ -18,6 +18,7 @@ from shared.config import (
     USER_ROLE_VALUES,
     can_transition,
     is_valid_booking_status,
+    is_valid_user_role,
 )
 from shared.models import Booking, Review
 

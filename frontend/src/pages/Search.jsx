@@ -29,8 +29,8 @@ function filtersFromURL(searchParams) {
   }
 }
 
-function hasAtLeastOneFilter(filters, amenities) {
-  return Object.values(filters).some(v => v !== '') || amenities.length > 0
+function hasAtLeastOneFilter(filters, amenities, geo) {
+  return Object.values(filters).some(v => v !== '') || amenities.length > 0 || (geo?.lat != null)
 }
 
 export default function Search() {
@@ -47,6 +47,12 @@ export default function Search() {
   const [searched, setSearched]         = useState(false)
   const [selectedId, setSelectedId]     = useState(null)
   const [filtersOpen, setFiltersOpen]   = useState(false)
+  const [geo, setGeo]                   = useState(() => {
+    const lat = searchParams.get('lat')
+    const lng = searchParams.get('lng')
+    if (lat && lng) return { lat: parseFloat(lat), lng: parseFloat(lng), radius_km: parseFloat(searchParams.get('radius_km')) || 10, loading: false, error: null }
+    return { lat: null, lng: null, radius_km: 10, loading: false, error: null }
+  })
 
   const suppressEffect = useRef(false)
   const filterPanelRef = useRef(null)
@@ -67,7 +73,6 @@ export default function Search() {
     doSearch(params)
   }, [searchParams])
 
-  // Fermer le panel au clic extérieur
   useEffect(() => {
     function handleClickOutside(e) {
       if (filterPanelRef.current && !filterPanelRef.current.contains(e.target)) {
@@ -97,6 +102,27 @@ export default function Search() {
     }
   }
 
+  function getLocation() {
+    if (!navigator.geolocation) {
+      setGeo(g => ({ ...g, error: 'Géolocalisation non supportée par ce navigateur.' }))
+      return
+    }
+    setGeo(g => ({ ...g, loading: true, error: null }))
+    navigator.geolocation.getCurrentPosition(
+      pos => setGeo(g => ({
+        ...g,
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        loading: false,
+      })),
+      () => setGeo(g => ({ ...g, loading: false, error: 'Position refusée ou indisponible.' }))
+    )
+  }
+
+  function clearGeo() {
+    setGeo({ lat: null, lng: null, radius_km: 10, loading: false, error: null })
+  }
+
   const handleChange = e =>
     setFilters(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -107,7 +133,7 @@ export default function Search() {
 
   const handleSubmit = e => {
     e.preventDefault()
-    if (!hasAtLeastOneFilter(filters, amenities)) {
+    if (!hasAtLeastOneFilter(filters, amenities, geo)) {
       setValidationError(true)
       return
     }
@@ -117,10 +143,20 @@ export default function Search() {
     const params = {}
     Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v })
     if (amenities.length > 0) params.amenities = amenities
+    if (geo.lat && geo.lng) {
+      params.lat = geo.lat
+      params.lng = geo.lng
+      params.radius_km = parseFloat(geo.radius_km) || 10
+    }
 
     const urlParams = new URLSearchParams()
     Object.entries(filters).forEach(([k, v]) => { if (v) urlParams.set(k, v) })
     amenities.forEach(a => urlParams.append('amenities', a))
+    if (geo.lat && geo.lng) {
+      urlParams.set('lat', geo.lat)
+      urlParams.set('lng', geo.lng)
+      urlParams.set('radius_km', parseFloat(geo.radius_km) || 10)
+    }
     suppressEffect.current = true
     setSearchParams(urlParams)
     doSearch(params)
@@ -130,7 +166,7 @@ export default function Search() {
   const advancedCount = [
     filters.min_price, filters.max_price, filters.num_rooms,
     filters.check_in, filters.check_out,
-  ].filter(Boolean).length + amenities.length
+  ].filter(Boolean).length + amenities.length + (geo.lat ? 1 : 0)
 
   return (
     <div className="search-page">
@@ -221,6 +257,45 @@ export default function Search() {
                     ))}
                   </div>
                 </div>
+
+                <div className="search-filter-geo">
+                  <label className="search-filter-label">Proximité</label>
+                  <div className="search-geo-row">
+                    {geo.lat ? (
+                      <>
+                        <span className="search-geo-status">
+                          <GeoIcon /> Position acquise
+                        </span>
+                        <div className="search-geo-radius">
+                          <input
+                            type="number"
+                            min="1"
+                            max="500"
+                            placeholder="km"
+                            value={geo.radius_km}
+                            onChange={e => setGeo(g => ({ ...g, radius_km: e.target.value }))}
+                          />
+                          <span className="search-geo-radius-unit">km</span>
+                        </div>
+                        <button type="button" className="search-geo-clear" onClick={clearGeo}>
+                          Effacer
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`search-geo-btn${geo.loading ? ' search-geo-btn--loading' : ''}`}
+                        onClick={getLocation}
+                        disabled={geo.loading}
+                      >
+                        <GeoIcon />
+                        {geo.loading ? 'Localisation...' : 'Utiliser ma position'}
+                      </button>
+                    )}
+                  </div>
+                  {geo.error && <p className="search-geo-error">{geo.error}</p>}
+                </div>
+
               </div>
             )}
           </div>
@@ -312,6 +387,17 @@ function PinIcon() {
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
       <circle cx="12" cy="9" r="2.5"/>
+    </svg>
+  )
+}
+
+function GeoIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+      <circle cx="12" cy="12" r="9" strokeDasharray="2 3"/>
     </svg>
   )
 }

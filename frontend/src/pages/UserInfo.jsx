@@ -65,16 +65,6 @@ export default function UserInfo() {
           </div>
         )}
 
-        {user.role === "owner" && (
-          <div className="userinfo-owner-actions">
-            <Link to="/my-properties" className="userinfo-action-btn">
-              Mes annonces
-            </Link>
-            <Link to="/properties/new" className="userinfo-action-btn userinfo-action-btn--primary">
-              + Créer une annonce
-            </Link>
-          </div>
-        )}
       </div>
     </div>
   );

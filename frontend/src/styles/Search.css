@@ -171,13 +171,104 @@
   font-size: 0.85rem;
 }
 
-.search-filter-group input[type="number"] {
-  -moz-appearance: textfield;
+/* ---------- Géolocalisation ---------- */
+.search-filter-geo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.search-filter-group input[type="number"]::-webkit-outer-spin-button,
-.search-filter-group input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
+.search-geo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.search-geo-radius {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.search-geo-radius input {
+  width: 70px;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #e8e2da;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  color: #3b2f27;
+  background: #fafaf9;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  text-align: center;
+}
+
+.search-geo-radius input:focus {
+  border-color: #b07a55;
+}
+
+.search-geo-radius-unit {
+  font-size: 0.82rem;
+  color: #9e8d82;
+  font-weight: 500;
+}
+
+.search-geo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #e8e2da;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: #7a6a5f;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.search-geo-btn:hover:not(:disabled) {
+  border-color: #b07a55;
+  color: #b07a55;
+}
+
+.search-geo-btn--loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.search-geo-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #065f46;
+  background: #d1fae5;
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+}
+
+.search-geo-clear {
+  font-size: 0.78rem;
+  color: #9e8d82;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
+  padding: 0;
+}
+
+.search-geo-clear:hover { color: #3b2f27; }
+
+.search-geo-error {
+  font-size: 0.78rem;
+  color: #a0522d;
   margin: 0;
 }
 
