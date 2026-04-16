@@ -20,6 +20,11 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  async function handleBecomeOwner() {
+    setDropdownOpen(false);
+    await becomeOwner();
+  }
+
   function handleLogout() {
     setDropdownOpen(false);
     logout();

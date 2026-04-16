@@ -195,10 +195,26 @@ def become_owner(request: Request):
 # -----------------------------
 
 def _forward_catalog(method: str, path: str, request: Request, payload: dict = None):
-    headers = {}
+    headers = {"Content-Type": "application/json"}
     auth = request.headers.get("Authorization")
     if auth:
         headers["Authorization"] = auth
+    try:
+        response = requests.request(
+            method,
+            f"{CATALOG_SERVICE_URL}{path}",
+            json=payload,
+            headers=headers,
+        )
+        return Response(
+            content=response.content,
+            status_code=response.status_code,
+            media_type="application/json",
+        )
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/search")
 def search(
     request: Request,
