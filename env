@@ -1,0 +1,11 @@
+# Base de données
+POSTGRES_DB=rental_db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+DATABASE_URL=postgresql://postgres:postgres@db:5432/rental_db
+
+# JWT
+JWT_SECRET=change_this_in_production
+
+# RabbitMQ
+RABBITMQ_URL=amqp://guest:guest@rabbitmq/

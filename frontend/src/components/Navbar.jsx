@@ -7,6 +7,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, logout, becomeOwner } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -25,10 +26,11 @@ export default function Navbar() {
     navigate("/login");
   }
 
-  async function handleBecomeOwner() {
-    setDropdownOpen(false);
-    await becomeOwner();
-    navigate("/my-properties");
+  function handleSearch(e) {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) params.set("keyword", searchQuery.trim());
+    navigate(`/search?${params.toString()}`);
   }
 
   return (
@@ -42,8 +44,22 @@ export default function Navbar() {
           {user?.role === "owner" && (
             <Link to="/my-properties" className="navbar-link">Mes annonces</Link>
           )}
+          {user && <Link to="/bookings" className="navbar-link">Réservations</Link>}
         </div>
       </div>
+
+      <form className="navbar-search-form" onSubmit={handleSearch}>
+        <input
+          className="navbar-search-input"
+          type="text"
+          placeholder="Ville, mot-clé..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+        <button className="navbar-search-btn" type="submit">
+          <SearchIcon />
+        </button>
+      </form>
 
       <div className="navbar-right">
         {user ? (
@@ -110,6 +126,16 @@ function ChevronIcon({ open }) {
       strokeWidth="2"
     >
       <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
   );
 }
