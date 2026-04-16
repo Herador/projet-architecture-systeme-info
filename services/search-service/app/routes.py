@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 from typing import Optional, List
 from datetime import date
 from shared.database import get_db
-from shared.models import Property, Availability
-from app.schemas import PropertyResult, PropertyMapResult, AmenityEnum
+from shared.models import Property, Availability, Booking
+from app.schemas import PropertyResult, PropertyMapResult, AmenityEnum, AMENITY_LABELS
 import math
 
 router = APIRouter(prefix="/search")
@@ -19,6 +20,13 @@ def haversine(lat1, lng1, lat2, lng2) -> float:
          math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
          math.sin(d_lng/2)**2)
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+# ------------- Liste des équipements disponibles --------------------
+
+@router.get("/amenities")
+def get_amenities():
+    return [{"value": a.value, "label": AMENITY_LABELS[a.value]} for a in AmenityEnum]
 
 
 # ------------- Recherche de logements avec filtres -------------------
@@ -42,7 +50,11 @@ def search_properties(
 
     db: Session = Depends(get_db),
 ):
-    query = db.query(Property).filter(Property.status == "published")
+    query = db.query(Property).filter(
+        Property.status == "published",
+        Property.price_per_night.isnot(None),
+        Property.num_rooms.isnot(None),
+    )
 
     # ── Recherche par mots-clés ───────────────────────────────────
     if keyword:
@@ -68,12 +80,26 @@ def search_properties(
 
     # ── Filtre disponibilité ──────────────────────────────────────
     if check_in and check_out:
-        blocked = db.query(Availability.property_id).filter(
-            Availability.is_blocked == True,
+        # 1) Jours explicitement bloqués dans la table availabilities
+        blocked_by_availability = select(Availability.property_id).where(
+            Availability.is_blocked.is_(True),
             Availability.date >= check_in,
-            Availability.date <= check_out
-        ).subquery()
-        query = query.filter(Property.id.not_in(blocked))
+            Availability.date <= check_out,
+        )
+
+        # 2) Réservations actives qui chevauchent la plage demandée
+        #    Overlap : booking.check_in < demande.check_out
+        #          AND booking.check_out > demande.check_in
+        blocked_by_booking = select(Booking.property_id).where(
+            Booking.status.in_(["pending", "confirmed"]),
+            Booking.check_in < check_out,
+            Booking.check_out > check_in,
+        )
+
+        query = query.filter(
+            Property.id.not_in(blocked_by_availability),
+            Property.id.not_in(blocked_by_booking),
+        )
 
     results = query.all()
 

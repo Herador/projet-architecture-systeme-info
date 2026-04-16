@@ -7,7 +7,6 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -26,11 +25,9 @@ export default function Navbar() {
     navigate("/login");
   }
 
-  function handleSearch(e) {
-    e.preventDefault();
-    const params = new URLSearchParams();
-    if (searchQuery.trim()) params.set("keyword", searchQuery.trim());
-    navigate(`/search?${params.toString()}`);
+  async function handleBecomeOwner() {
+    setDropdownOpen(false);
+    await becomeOwner();
   }
 
   return (
@@ -48,23 +45,11 @@ export default function Navbar() {
         </div>
       </div>
 
-      <form className="navbar-search-form" onSubmit={handleSearch}>
-        <input
-          className="navbar-search-input"
-          type="text"
-          placeholder="Ville, mot-clé..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-        />
-        <button className="navbar-search-btn" type="submit">
-          <SearchIcon />
-        </button>
-      </form>
-
-      <div className="navbar-right">
+<div className="navbar-right">
         {user ? (
           <div className="navbar-user-menu" ref={dropdownRef}>
             <button
+              type="button"
               className="navbar-user-btn"
               onClick={() => setDropdownOpen((o) => !o)}
             >
@@ -153,12 +138,3 @@ function ChevronIcon({ open }) {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2.5" width="16" height="16">
-      <circle cx="11" cy="11" r="8" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}

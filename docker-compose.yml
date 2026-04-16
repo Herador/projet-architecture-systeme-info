@@ -42,7 +42,7 @@ services:
       context: .
       dockerfile: services/catalog-service/Dockerfile
     ports:
-      - "8002:8000"
+      - "8003:8000"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
@@ -72,7 +72,7 @@ services:
       context: .
       dockerfile: services/booking-service/Dockerfile
     ports:
-      - "8003:8000"
+      - "8005:8000"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
