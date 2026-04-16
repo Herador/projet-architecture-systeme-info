@@ -16,6 +16,18 @@ class AmenityEnum(str, enum.Enum):
     animaux_acceptes = "animaux_acceptes"
 
 
+AMENITY_LABELS: dict[str, str] = {
+    AmenityEnum.wifi.value:             "WiFi",
+    AmenityEnum.parking.value:          "Parking",
+    AmenityEnum.piscine.value:          "Piscine",
+    AmenityEnum.climatisation.value:    "Clim",
+    AmenityEnum.lave_linge.value:       "Lave-linge",
+    AmenityEnum.televiseur.value:       "TV",
+    AmenityEnum.cuisine_equipee.value:  "Cuisine",
+    AmenityEnum.animaux_acceptes.value: "Animaux",
+}
+
+
 class SearchFilters(BaseModel):
     keyword: Optional[str] = None
     city: Optional[str] = None
