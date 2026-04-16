@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
 
   db:
@@ -99,6 +97,15 @@ services:
    depends_on:
      - gateway
 
+  interaction-service:
+   build:
+     context: .
+     dockerfile: services/interaction-service/Dockerfile
+   environment:
+     DATABASE_URL: ${DATABASE_URL}
+   depends_on:
+     - gateway
+
 volumes:
   postgres_data:
 
@@ -109,12 +116,7 @@ volumes:
 #    depends_on:
 #      - db
 #
-#  interaction-service:
-#    build: ./services/interaction-service
-#    environment:
-#      DATABASE_URL: ${DATABASE_URL}
-#    depends_on:
-#      - db
+
 #
 #  admin-service:
 #    build: ./services/admin-service

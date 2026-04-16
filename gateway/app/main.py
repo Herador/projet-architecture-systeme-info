@@ -42,6 +42,7 @@ CATALOG_SERVICE_URL = "http://catalog-service:8000"
 SEARCH_SERVICE_URL   = "http://search-service:8000"
 BOOKING_SERVICE_URL = "http://booking-service:8000"
 ADMIN_SERVICE_URL   = "http://admin-service:8000"
+INTERACTION_SERVICE_URL = "http://interaction-service:8000"
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET")
 
@@ -444,3 +445,58 @@ def admin_list_bookings(request: Request):
 @app.delete("/admin/bookings/{booking_id}")
 def admin_cancel_booking(booking_id: str, request: Request):
     return _forward_admin("DELETE", f"/admin/bookings/{booking_id}", request)
+
+
+# -----------------------------
+# INTERACTION SERVICE PROXY
+# -----------------------------
+
+def _forward_interaction(method: str, path: str, request: Request, payload: dict = None):
+    """Décode le token et transfère la requête au service d'interaction."""
+    user = _decode_token(request) # Vérifie l'auth
+
+    headers = {
+        "x-user-id": user["user_id"],
+        "x-user-role": user["role"],
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = requests.request(
+            method,
+            f"{INTERACTION_SERVICE_URL}{path}",
+            json=payload,
+            headers=headers,
+            params=list(request.query_params.multi_items()),
+        )
+        return Response(
+            content=response.content,
+            status_code=response.status_code,
+            media_type="application/json",
+        )
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/interactions/conversations")
+def create_conversation(payload: dict, request: Request):
+    """Crée une nouvelle conversation entre un locataire et un propriétaire."""
+    return _forward_interaction("POST", "/interactions/conversations", request, payload)
+
+
+@app.get("/interactions/user/{user_id}/conversations")
+def get_user_conversations(user_id: str, request: Request):
+    """Récupère la liste des conversations d'un utilisateur spécifique."""
+    # Sécurité supplémentaire optionnelle : vérifier que user_id == l'id du token
+    return _forward_interaction("GET", f"/interactions/user/{user_id}/conversations", request)
+
+
+@app.post("/interactions/conversations/{conversation_id}/messages")
+def add_message(conversation_id: str, payload: dict, request: Request):
+    """Envoie un nouveau message dans une conversation."""
+    return _forward_interaction("POST", f"/interactions/conversations/{conversation_id}/messages", request, payload)
+
+
+@app.get("/interactions/conversations/{conversation_id}/messages")
+def get_messages(conversation_id: str, request: Request):
+    """Récupère les derniers messages d'une conversation (accepte le paramètre ?limit=)."""
+    return _forward_interaction("GET", f"/interactions/conversations/{conversation_id}/messages", request)

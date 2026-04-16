@@ -13,6 +13,7 @@ import Booking from "./pages/Booking";
 import UserInfo from "./pages/UserInfo";
 import ValidationIdentity from "./pages/ValidationIdentity";
 import AdminDashboard from "./pages/AdminDashboard";
+import Messaging from "./pages/Messaging";
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/profile" element={<UserInfo />} />
           <Route path="/become-owner" element={<ValidationIdentity />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/messages" element={<Messaging />}/>
         </Routes>
       </AuthProvider>
     </BrowserRouter>
