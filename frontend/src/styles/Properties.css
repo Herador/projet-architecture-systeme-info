@@ -1,0 +1,205 @@
+.properties-page {
+  max-width: 1100px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+.properties-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Filtres ── */
+.properties-filters {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.filter-input {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  outline: none;
+  flex: 1;
+  min-width: 140px;
+}
+
+.filter-input:focus {
+  border-color: #2563eb;
+}
+
+.filter-btn {
+  padding: 0.5rem 1.2rem;
+  background-color: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.filter-btn:hover {
+  background-color: #1d4ed8;
+}
+
+/* ── Grille d'annonces ── */
+.properties-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.property-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.2s, transform 0.15s;
+  display: block;
+}
+
+.property-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.property-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 0.4rem;
+}
+
+.property-card-city {
+  color: #6b7280;
+  font-size: 0.88rem;
+  margin: 0 0 0.3rem;
+}
+
+.property-card-price {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2563eb;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.property-card-rooms {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.property-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.property-edit-btn {
+  padding: 0.35rem 0.8rem;
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #333;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.property-edit-btn:hover {
+  background-color: #e5e7eb;
+}
+
+.property-delete-btn {
+  padding: 0.35rem 0.8rem;
+  background-color: #fff5f5;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #e53e3e;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.property-delete-btn:hover {
+  background-color: #fee2e2;
+}
+
+/* ── Detail page ── */
+.property-detail-page {
+  max-width: 700px;
+  margin: 2.5rem auto;
+  padding: 0 1.5rem;
+}
+
+.property-detail-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 0.5rem;
+}
+
+.property-detail-city {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.property-detail-price {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 0.5rem;
+}
+
+.property-detail-rooms,
+.property-detail-amenities {
+  color: #444;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.property-detail-description {
+  color: #333;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-top: 1rem;
+  white-space: pre-wrap;
+}
+
+.property-back-btn {
+  margin-top: 2rem;
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;
+  transition: background-color 0.15s;
+}
+
+.property-back-btn:hover {
+  background-color: #f3f4f6;
+}
+
+/* ── États ── */
+.properties-loading,
+.properties-empty {
+  text-align: center;
+  color: #6b7280;
+  margin-top: 3rem;
+  font-size: 1rem;
+}

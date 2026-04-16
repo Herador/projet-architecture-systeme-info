@@ -43,8 +43,21 @@ export function AuthProvider({ children }) {
       });
   }
 
+  async function becomeOwner() {
+    const token = localStorage.getItem("token");
+    await axios.post(
+      `${API_URL}/auth/become-owner`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const { data } = await axios.get(`${API_URL}/auth/getInfo`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setUser(data);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, becomeOwner }}>
       {children}
     </AuthContext.Provider>
   );

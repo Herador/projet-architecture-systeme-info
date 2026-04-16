@@ -5,7 +5,7 @@ import "../styles/Navbar.css";
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, becomeOwner } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef(null);
@@ -40,6 +40,10 @@ export default function Navbar() {
           RentalApp
         </Link>
         <div className="navbar-nav">
+          <Link to="/" className="navbar-link">Annonces</Link>
+          {user?.role === "owner" && (
+            <Link to="/my-properties" className="navbar-link">Mes annonces</Link>
+          )}
           {user && <Link to="/bookings" className="navbar-link">Réservations</Link>}
         </div>
       </div>
@@ -71,9 +75,21 @@ export default function Navbar() {
 
             {dropdownOpen && (
               <div className="navbar-dropdown">
-                <button className="navbar-dropdown-item" onClick={() => setDropdownOpen(false)}>
-                  Voir le profil
-                </button>
+                {user.role === "owner" && (
+                  <Link
+                    to="/properties/new"
+                    className="navbar-dropdown-item"
+                    style={{ display: "block", textDecoration: "none", color: "inherit" }}
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    + Créer une annonce
+                  </Link>
+                )}
+                {user.role === "tenant" && (
+                  <button className="navbar-dropdown-item" onClick={handleBecomeOwner}>
+                    Devenir propriétaire
+                  </button>
+                )}
                 <button className="navbar-dropdown-item navbar-dropdown-item--danger" onClick={handleLogout}>
                   Déconnexion
                 </button>

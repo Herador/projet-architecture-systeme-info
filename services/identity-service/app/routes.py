@@ -169,6 +169,23 @@ def update_user_info(data: CreateAccount, user=Depends(get_current_user)):
         session.close()
 
 
+# devenir propriétaire
+@router.post("/become-owner")
+def become_owner(user=Depends(get_current_user)):
+    session = SessionLocal()
+    try:
+        db_user = session.query(User).filter(User.id == user.id).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if db_user.role == "owner":
+            raise HTTPException(status_code=400, detail="Already an owner")
+        db_user.role = "owner"
+        session.commit()
+    finally:
+        session.close()
+    return {"message": "You are now an owner"}
+
+
 # delete account
 @router.delete("/delete")
 def delete_account(user=Depends(get_current_user)):

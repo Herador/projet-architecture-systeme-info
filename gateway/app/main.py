@@ -38,6 +38,7 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 IDENTITY_SERVICE_URL = "http://identity-service:8000"
+CATALOG_SERVICE_URL = "http://catalog-service:8000"
 SEARCH_SERVICE_URL   = "http://search-service:8000"
 BOOKING_SERVICE_URL = "http://booking-service:8000"
 
@@ -183,6 +184,21 @@ def update(payload: dict, request: Request):
 def delete(request: Request):
     return _forward("DELETE", "/auth/delete", request)
 
+
+@app.post("/auth/become-owner")
+def become_owner(request: Request):
+    return _forward("POST", "/auth/become-owner", request)
+
+
+# -----------------------------
+# CATALOG SERVICE PROXY
+# -----------------------------
+
+def _forward_catalog(method: str, path: str, request: Request, payload: dict = None):
+    headers = {}
+    auth = request.headers.get("Authorization")
+    if auth:
+        headers["Authorization"] = auth
 @app.get("/search")
 def search(
     request: Request,
@@ -238,6 +254,39 @@ def _forward_booking(method: str, path: str, request: Request, payload: dict = N
         return {"error": str(e)}
 
 
+@app.post("/catalog/properties")
+def create_property(payload: dict, request: Request):
+    return _forward_catalog("POST", "/catalog/properties", request, payload)
+
+
+@app.get("/catalog/properties")
+def list_properties(request: Request):
+    return _forward_catalog("GET", f"/catalog/properties?{request.url.query}", request)
+
+
+@app.get("/catalog/properties/{property_id}")
+def get_property(property_id: str, request: Request):
+    return _forward_catalog("GET", f"/catalog/properties/{property_id}", request)
+
+
+@app.put("/catalog/properties/{property_id}")
+def update_property(property_id: str, payload: dict, request: Request):
+    return _forward_catalog("PUT", f"/catalog/properties/{property_id}", request, payload)
+
+
+@app.delete("/catalog/properties/{property_id}")
+def delete_property(property_id: str, request: Request):
+    return _forward_catalog("DELETE", f"/catalog/properties/{property_id}", request)
+
+
+@app.post("/catalog/properties/{property_id}/availability")
+def set_availability(property_id: str, payload: dict, request: Request):
+    return _forward_catalog("POST", f"/catalog/properties/{property_id}/availability", request, payload)
+
+
+@app.get("/catalog/properties/{property_id}/availability")
+def get_availability(property_id: str, request: Request):
+    return _forward_catalog("GET", f"/catalog/properties/{property_id}/availability", request)
 # Routes statiques en premier (avant les routes avec paramètres dynamiques)
 @app.get("/bookings/config")
 def get_config(request: Request):
