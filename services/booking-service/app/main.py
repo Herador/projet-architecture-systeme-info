@@ -1,15 +1,12 @@
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.events import close_connection
+
+from shared.database import engine
+from shared.models import Base
 
 
-@asynccontextmanager
-async def lifespan(application: FastAPI):
-    yield
-    await close_connection()
-
-
-app = FastAPI(title="Booking Service", lifespan=lifespan)
+Base.metadata.create_all(bind=engine)
+app = FastAPI(title="Booking Service")
 
 from app.routes import router  # noqa: E402
+
 app.include_router(router)

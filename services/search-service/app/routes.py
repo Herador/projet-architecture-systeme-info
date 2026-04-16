@@ -5,10 +5,12 @@ from typing import Optional, List
 from datetime import date
 from shared.database import get_db
 from shared.models import Property, Availability, Booking
+from shared.config import BOOKABLE_STATUSES, PROPERTY_STATUS_VALUES
 from app.schemas import PropertyResult, PropertyMapResult, AmenityEnum, AMENITY_LABELS
 import math
 
 router = APIRouter(prefix="/search")
+PUBLISHED_STATUS = PROPERTY_STATUS_VALUES[1] if len(PROPERTY_STATUS_VALUES) > 1 else "published"
 
 
 def haversine(lat1, lng1, lat2, lng2) -> float:
@@ -51,7 +53,7 @@ def search_properties(
     db: Session = Depends(get_db),
 ):
     query = db.query(Property).filter(
-        Property.status == "published",
+        Property.status == PUBLISHED_STATUS,
         Property.price_per_night.isnot(None),
         Property.num_rooms.isnot(None),
     )
@@ -84,14 +86,14 @@ def search_properties(
         blocked_by_availability = select(Availability.property_id).where(
             Availability.is_blocked.is_(True),
             Availability.date >= check_in,
-            Availability.date <= check_out,
+            Availability.date < check_out,
         )
 
         # 2) Réservations actives qui chevauchent la plage demandée
         #    Overlap : booking.check_in < demande.check_out
         #          AND booking.check_out > demande.check_in
         blocked_by_booking = select(Booking.property_id).where(
-            Booking.status.in_(["pending", "confirmed"]),
+            Booking.status.in_(BOOKABLE_STATUSES),
             Booking.check_in < check_out,
             Booking.check_out > check_in,
         )
@@ -129,7 +131,7 @@ def get_map_markers(
     → optimisé pour afficher les marqueurs sur la carte Leaflet
     """
     query = db.query(Property).filter(
-        Property.status == "published",
+        Property.status == PUBLISHED_STATUS,
         Property.latitude != None,
         Property.longitude != None
     )
@@ -154,7 +156,7 @@ def get_map_markers(
 def get_property_detail(property_id: str, db: Session = Depends(get_db)):
     prop = db.query(Property).filter(
         Property.id == property_id,
-        Property.status == "published"
+        Property.status == PUBLISHED_STATUS
     ).first()
 
     if not prop:

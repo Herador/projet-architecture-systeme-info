@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Generic, TypeVar, Optional
+from typing import Generic, TypeVar, Optional
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
@@ -87,14 +88,15 @@ def error_response(
     field: Optional[str] = None,
     retry_possible: bool = True,
     details: Optional[dict] = None,
-) -> tuple[ApiResponse[None], int]:
-    return (
-        ApiResponse.fail(
-            code=code,
-            message=message,
-            field=field,
-            retry_possible=retry_possible,
-            details=details,
-        ),
-        status_code,
+) -> JSONResponse:
+    payload = ApiResponse.fail(
+        code=code,
+        message=message,
+        field=field,
+        retry_possible=retry_possible,
+        details=details,
+    )
+    return JSONResponse(
+        status_code=status_code,
+        content=payload.model_dump(mode="json"),
     )
