@@ -2,9 +2,9 @@ import logging
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
-from typing import Optional
 
-from fastapi import APIRouter, Depends, Header
+
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -39,28 +39,34 @@ def _get_user_id(x_user_id: str = Header(...), x_user_role: str = Header(...)) -
     try:
         user_id = UUID(x_user_id)
     except ValueError:
-        return error_response(
-            ErrorCode.VALIDATION_ERROR,
-            "Identifiant utilisateur invalide",
-            400,
-            field="user_id",
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Identifiant utilisateur invalide",
+                    "field": "user_id",
+                    "retry_possible": True,
+                }
+            }
         )
     
     if not is_valid_user_role(x_user_role):
-        return error_response(
-            ErrorCode.INVALID_ROLE,
-            f"Rôle invalide. Valeurs possibles: {', '.join(USER_ROLE_VALUES)}",
-            400,
-            field="role",
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "success": False,
+                "error": {
+                    "code": "INVALID_ROLE",
+                    "message": f"Rôle invalide. Valeurs possibles: {', '.join(USER_ROLE_VALUES)}",
+                    "field": "role",
+                    "retry_possible": True,
+                }
+            }
         )
     
-    return {"user_id": user_id, "role": x_user_role, "_ok": True}
-
-
-def _check_user(user_data) -> Optional[tuple]:
-    if isinstance(user_data, tuple):
-        return user_data
-    return None
+    return {"user_id": user_id, "role": x_user_role}
 
 
 def _date_range(start: date, end: date) -> list[date]:
@@ -107,10 +113,6 @@ async def create_booking(
     user: dict = Depends(_get_user_id),
     db: Session = Depends(get_db),
 ):
-    auth_error = _check_user(user)
-    if auth_error:
-        return auth_error
-
     prop = db.query(Property).filter(Property.id == payload.property_id).first()
     if not prop:
         return error_response(
@@ -272,6 +274,11 @@ async def create_booking(
     )
 
 
+@router.get("/config", response_model=ApiResponse[ConfigOut])
+def get_config():
+    return ApiResponse.ok(build_frontend_config(), action="get_config")
+
+
 @router.get("/", response_model=ApiResponse[list[BookingOut]])
 def list_bookings(
     status: str | None = None,
@@ -313,11 +320,6 @@ def list_bookings(
             "Impossible de charger vos réservations, veuillez réessayer",
             500,
         )
-
-
-@router.get("/config", response_model=ApiResponse[ConfigOut])
-def get_config():
-    return ApiResponse.ok(build_frontend_config(), action="get_config")
 
 
 @router.get("/{booking_id}", response_model=ApiResponse[BookingOut])

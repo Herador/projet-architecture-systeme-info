@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Map from '../components/Map'
 import '../styles/Search.css'
@@ -34,6 +34,7 @@ function hasAtLeastOneFilter(filters, amenities) {
 }
 
 export default function Search() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [filters, setFilters]           = useState(() => filtersFromURL(searchParams))
@@ -256,7 +257,10 @@ export default function Search() {
               <div
                 key={p.id}
                 className={`search-card${selectedId === p.id ? ' search-card--selected' : ''}`}
-                onClick={() => setSelectedId(p.id)}
+                onClick={() => {
+                  setSelectedId(p.id);
+                  navigate(`/properties/${p.id}`);
+                }}
               >
                 <div className="search-card-image">🏠</div>
                 <div className="search-card-body">
