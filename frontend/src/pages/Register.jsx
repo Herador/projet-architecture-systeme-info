@@ -38,7 +38,7 @@ export default function Register() {
       login(data.token, data);
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.detail || "Une erreur est survenue.");
+      setError(translateError(err));
     } finally {
       setLoading(false);
     }
@@ -47,7 +47,15 @@ export default function Register() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+
+        <div className="auth-brand">
+          <div className="auth-brand-icon">
+            <HomeIcon />
+          </div>
+        </div>
+
         <h1 className="auth-title">Créer un compte</h1>
+        <p className="auth-subtitle">Rejoignez notre communauté</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <Field
@@ -90,6 +98,7 @@ export default function Register() {
           </button>
         </form>
 
+        <div className="auth-divider" />
         <p className="auth-footer">
           Déjà un compte ?{" "}
           <Link to="/login" className="auth-link">
@@ -98,6 +107,28 @@ export default function Register() {
         </p>
       </div>
     </div>
+  );
+}
+
+function translateError(err) {
+  const detail = err.response?.data?.detail;
+  const status = err.response?.status;
+  if (status === 500) return "Ce nom d'utilisateur ou cet email est déjà utilisé.";
+  if (status === 422) return "Données invalides. Vérifiez les champs saisis.";
+  if (detail === "Invalid username or email") return "Nom d'utilisateur ou email invalide.";
+  if (detail === "Invalid password")          return "Mot de passe incorrect.";
+  if (detail === "User is already connected") return "Vous êtes déjà connecté.";
+  if (detail === "User not found")            return "Utilisateur introuvable.";
+  return "Une erreur est survenue.";
+}
+
+function HomeIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
   );
 }
 

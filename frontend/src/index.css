@@ -2,6 +2,16 @@
   box-sizing: border-box;
 }
 
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 body, html {
   margin: 0;
   padding: 0;
