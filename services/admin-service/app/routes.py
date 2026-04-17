@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Header, HTTPException, Query
 from typing import Optional
-from shared.models import User, Property, Booking, VerificationToken, Availability, Review
+from shared.models import User, Property, Booking, VerificationToken, Availability, Review, Ticket, AuditLog
 from shared.database import SessionLocal
 import uuid
 
@@ -132,10 +132,36 @@ def delete_user(
         user = session.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
         session.query(VerificationToken).filter(VerificationToken.user_id == user_id).delete()
+
+        session.query(Review).filter(Review.reviewer_id == user_id).delete()
+
+        session.query(Booking).filter(
+            (Booking.tenant_id == user_id) | (Booking.owner_id == user_id)
+        ).delete(synchronize_session=False)
+
+        prop_ids = [
+            str(p.id)
+            for p in session.query(Property.id).filter(Property.owner_id == user_id).all()
+        ]
+        if prop_ids:
+            session.query(Availability).filter(
+                Availability.property_id.in_(prop_ids)
+            ).delete(synchronize_session=False)
+            session.query(Property).filter(Property.owner_id == user_id).delete(
+                synchronize_session=False
+            )
+
+        session.query(Ticket).filter(Ticket.reported_by == user_id).delete()
+        session.query(AuditLog).filter(AuditLog.admin_id == user_id).delete()
+
         session.delete(user)
         session.commit()
         return {"message": "Utilisateur supprimé"}
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
