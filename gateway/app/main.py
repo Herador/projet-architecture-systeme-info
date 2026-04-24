@@ -8,7 +8,7 @@ import jwt
 import requests
 
 from shared.database import engine, SessionLocal
-from shared.models import Base, VerificationToken, User
+from shared.models import Base, VerificationToken
 
 app = FastAPI(title="Gateway")
 
@@ -42,7 +42,8 @@ CATALOG_SERVICE_URL = "http://catalog-service:8000"
 SEARCH_SERVICE_URL   = "http://search-service:8000"
 BOOKING_SERVICE_URL = "http://booking-service:8000"
 ADMIN_SERVICE_URL   = "http://admin-service:8000"
-INTERACTION_SERVICE_URL = "http://interaction-service:8000"
+INTERACTION_SERVICE_URL    = "http://interaction-service:8000"
+NOTIFICATION_SERVICE_URL   = "http://notification-service:8000"
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET")
 
@@ -69,20 +70,22 @@ def _decode_token(request: Request) -> dict:
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
-    # Vérifier que le token existe en base (non révoqué)
+    # Vérifier que le token n'est pas révoqué
     session = SessionLocal()
     try:
         db_token = session.query(VerificationToken).filter(VerificationToken.token == token).first()
         if not db_token:
             raise HTTPException(status_code=401, detail="Token not found or revoked")
-
-        user = session.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-
-        return {"user_id": str(user.id), "role": user.role}
     finally:
         session.close()
+
+    return {
+        "user_id":     user_id,
+        "role":        payload.get("role"),
+        "username":    payload.get("username"),
+        "email":       payload.get("email"),
+        "is_verified": payload.get("is_verified"),
+    }
 
 
 # -----------------------------
@@ -344,6 +347,32 @@ def list_bookings(request: Request):
     return _forward_booking("GET", f"/bookings/?{request.query_params}", request)
 
 
+# Reviews about a target (public — avant les routes dynamiques)
+@app.get("/bookings/reviews/about/{target_id}")
+def get_reviews_about(target_id: str, request: Request):
+    try:
+        response = requests.get(
+            f"{BOOKING_SERVICE_URL}/bookings/reviews/about/{target_id}",
+            params=list(request.query_params.multi_items()),
+        )
+        return Response(content=response.content, status_code=response.status_code, media_type="application/json")
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# Ratings (public — avant les routes dynamiques)
+@app.get("/bookings/ratings/{target_id}")
+def get_target_rating(target_id: str, request: Request):
+    try:
+        response = requests.get(
+            f"{BOOKING_SERVICE_URL}/bookings/ratings/{target_id}",
+            params=list(request.query_params.multi_items()),
+        )
+        return Response(content=response.content, status_code=response.status_code, media_type="application/json")
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # Reviews (avant /{booking_id} pour éviter le conflit de routing)
 @app.post("/bookings/{booking_id}/reviews")
 def create_review(booking_id: str, payload: dict, request: Request):
@@ -500,3 +529,38 @@ def add_message(conversation_id: str, payload: dict, request: Request):
 def get_messages(conversation_id: str, request: Request):
     """Récupère les derniers messages d'une conversation (accepte le paramètre ?limit=)."""
     return _forward_interaction("GET", f"/interactions/conversations/{conversation_id}/messages", request)
+
+
+# -----------------------------
+# NOTIFICATION SERVICE PROXY
+# -----------------------------
+
+def _forward_notif(method: str, path: str, request: Request, payload: dict = None):
+    auth = request.headers.get("Authorization")
+    headers = {"Authorization": auth} if auth else {}
+    try:
+        response = requests.request(
+            method,
+            f"{NOTIFICATION_SERVICE_URL}{path}",
+            json=payload,
+            headers=headers,
+            params=list(request.query_params.multi_items()),
+        )
+        return Response(content=response.content, status_code=response.status_code, media_type="application/json")
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/notifications")
+def get_notifications(request: Request):
+    return _forward_notif("GET", "/notifications", request)
+
+
+@app.patch("/notifications/read-all")
+def mark_all_read(request: Request):
+    return _forward_notif("PATCH", "/notifications/read-all", request)
+
+
+@app.patch("/notifications/{notif_id}/read")
+def mark_read(notif_id: str, request: Request):
+    return _forward_notif("PATCH", f"/notifications/{notif_id}/read", request)

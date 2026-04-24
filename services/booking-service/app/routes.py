@@ -39,7 +39,8 @@ from app.schemas import (
 )
 from shared.config import BOOKING_STATUS_VALUES, build_frontend_config
 from shared.database import get_db
-from shared.models import Booking, Review
+from shared.models import Availability, Booking, Review, User
+from shared.rabbitmq import publish_event
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,24 @@ async def create_booking(
             status=BOOKING_STATUS_VALUES[0],
         )
         db.add(booking)
+
+        from datetime import timedelta
+        current = payload.check_in
+        while current < payload.check_out:
+            existing = db.query(Availability).filter(
+                Availability.property_id == payload.property_id,
+                Availability.date == current,
+            ).first()
+            if existing:
+                existing.is_blocked = True
+            else:
+                db.add(Availability(
+                    property_id=payload.property_id,
+                    date=current,
+                    is_blocked=True,
+                ))
+            current += timedelta(days=1)
+
         db.commit()
         db.refresh(booking)
     except SQLAlchemyError:
@@ -274,6 +293,19 @@ async def update_booking_status(
         {"from": previous_status, "to": payload.status, "role": user["role"]},
     )
 
+    tenant = db.query(User).filter(User.id == booking.tenant_id).first()
+    owner = db.query(User).filter(User.id == booking.owner_id).first()
+    publish_event("booking.status_changed", {
+        "booking_id":   str(booking.id),
+        "property_id":  str(booking.property_id),
+        "old_status":   previous_status,
+        "new_status":   payload.status,
+        "tenant_email": tenant.email if tenant else None,
+        "tenant_name":  tenant.username if tenant else None,
+        "owner_email":  owner.email if owner else None,
+        "owner_name":   owner.username if owner else None,
+    })
+
     return ApiResponse.ok(
         booking,
         action="update_status",
@@ -302,6 +334,24 @@ async def cancel_booking(
     previous_status = booking.status
     try:
         booking.status = CANCELLED_BOOKING_STATUS
+
+        from datetime import timedelta
+        current = booking.check_in
+        while current < booking.check_out:
+            other = db.query(Booking).filter(
+                Booking.property_id == booking.property_id,
+                Booking.id != booking.id,
+                Booking.status != CANCELLED_BOOKING_STATUS,
+                Booking.check_in <= current,
+                Booking.check_out > current,
+            ).first()
+            if not other:
+                db.query(Availability).filter(
+                    Availability.property_id == booking.property_id,
+                    Availability.date == current,
+                ).delete()
+            current += timedelta(days=1)
+
         db.commit()
     except SQLAlchemyError:
         db.rollback()
@@ -319,6 +369,19 @@ async def cancel_booking(
         str(booking.id),
         {"previous_status": previous_status},
     )
+
+    tenant = db.query(User).filter(User.id == booking.tenant_id).first()
+    owner = db.query(User).filter(User.id == booking.owner_id).first()
+    publish_event("booking.status_changed", {
+        "booking_id":   str(booking.id),
+        "property_id":  str(booking.property_id),
+        "old_status":   previous_status,
+        "new_status":   CANCELLED_BOOKING_STATUS,
+        "tenant_email": tenant.email if tenant else None,
+        "tenant_name":  tenant.username if tenant else None,
+        "owner_email":  owner.email if owner else None,
+        "owner_name":   owner.username if owner else None,
+    })
 
     return ApiResponse.ok(
         None,
@@ -433,3 +496,52 @@ def list_reviews(
         action="list_reviews",
         meta={"count": len(reviews), "booking_id": str(booking_id)},
     )
+
+
+@router.get("/reviews/about/{target_id}")
+def get_reviews_about(
+    target_id: UUID,
+    target_type: str = "user",
+    db: Session = Depends(get_db),
+):
+    reviews = (
+        db.query(Review)
+        .filter(Review.reviewed_id == target_id, Review.target_type == target_type)
+        .order_by(Review.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": str(r.id),
+            "booking_id": str(r.booking_id),
+            "reviewer_id": str(r.reviewer_id),
+            "reviewed_id": str(r.reviewed_id),
+            "target_type": r.target_type,
+            "rating": r.rating,
+            "comment": r.comment,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in reviews
+    ]
+
+
+@router.get("/ratings/{target_id}")
+def get_target_rating(
+    target_id: UUID,
+    target_type: str = "property",
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import func as sqlfunc
+    result = (
+        db.query(
+            sqlfunc.avg(Review.rating).label("average"),
+            sqlfunc.count(Review.id).label("count"),
+        )
+        .filter(
+            Review.reviewed_id == target_id,
+            Review.target_type == target_type,
+        )
+        .first()
+    )
+    average = round(float(result.average), 1) if result.average else None
+    return {"target_id": str(target_id), "target_type": target_type, "average": average, "count": result.count}

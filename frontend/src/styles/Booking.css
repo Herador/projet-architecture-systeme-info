@@ -403,6 +403,236 @@
   border: 1px solid rgba(160, 82, 45, 0.18);
 }
 
+/* ---------- Availability Calendar ---------- */
+.cal-wrapper {
+  margin: 0.5rem 0 1rem;
+}
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.cal-nav {
+  background: none;
+  border: 1px solid #e8e2da;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #3b2f27;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.cal-nav:hover:not(:disabled) { background: #e8e2da; }
+.cal-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.cal-title {
+  font-weight: 700;
+  font-size: 0.93rem;
+  color: #3b2f27;
+  text-transform: capitalize;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.cal-weekday {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #8a7a72;
+  padding: 0.35rem 0;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.12s;
+  padding: 0;
+}
+
+.cal-day--empty    { background: none; pointer-events: none; }
+.cal-day--past     { color: #d0c9c3; cursor: not-allowed; background: none; }
+.cal-day--blocked  { background: #fdf0ec; color: #d4a79a; cursor: not-allowed; text-decoration: line-through; }
+.cal-day--available { background: #f5f3f0; color: #3b2f27; }
+.cal-day--available:hover { background: #e8e2da; }
+
+.cal-day--range    { background: #e8e2da; color: #3b2f27; border-radius: 0; }
+
+.cal-day--checkin  { background: #3b2f27; color: #fdf8f4; font-weight: 700; border-radius: 6px 0 0 6px; }
+.cal-day--checkout { background: #3b2f27; color: #fdf8f4; font-weight: 700; border-radius: 0 6px 6px 0; }
+
+/* checkin = checkout (same day) */
+.cal-day--checkin.cal-day--checkout { border-radius: 6px; }
+
+.cal-hint {
+  margin-top: 0.75rem;
+  font-size: 0.82rem;
+  color: #8a7a72;
+  text-align: center;
+  min-height: 1.2em;
+}
+
+.cal-hint--selected {
+  color: #3b2f27;
+  font-weight: 600;
+}
+
+.cal-legend {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.65rem;
+  font-size: 0.76rem;
+  color: #8a7a72;
+  justify-content: center;
+}
+
+.cal-legend-item { display: flex; align-items: center; gap: 0.3rem; }
+
+.cal-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.cal-legend-dot--available { background: #f5f3f0; border: 1px solid #d0c9c3; }
+.cal-legend-dot--blocked   { background: #fdf0ec; border: 1px solid #d4a79a; }
+.cal-legend-dot--selected  { background: #3b2f27; }
+
+/* ---------- Tabs ---------- */
+.booking-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e8e2da;
+  margin-bottom: 1.25rem;
+}
+
+.booking-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #8a7a72;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.booking-tab:hover {
+  color: #3b2f27;
+}
+
+.booking-tab.active {
+  color: #3b2f27;
+  border-bottom-color: #3b2f27;
+}
+
+.booking-tab-badge {
+  background: #e8e2da;
+  color: #3b2f27;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.booking-tab.active .booking-tab-badge {
+  background: #3b2f27;
+  color: #fdf8f4;
+}
+
+/* ---------- Tenant rating badge ---------- */
+.tenant-rating-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #fdf3e7;
+  color: #b07a30;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  margin-top: 0.3rem;
+}
+
+.tenant-rating-count {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* ---------- Review sections ---------- */
+.review-section {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e8e2da;
+}
+
+.review-section:last-of-type {
+  border-bottom: none;
+}
+
+.review-done {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #7aab6e;
+  margin-left: 0.4rem;
+}
+
+.form-info {
+  background: #f0f7ee;
+  color: #4a7a42;
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.review-section-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #3b2f27;
+  margin: 0 0 0.6rem;
+}
+
+.review-textarea {
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid #e8e2da;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  resize: vertical;
+  min-height: 70px;
+  font-family: inherit;
+  color: #3b2f27;
+  box-sizing: border-box;
+}
+
+.review-textarea:focus {
+  outline: none;
+  border-color: #3b2f27;
+}
+
 /* ---------- Étoiles ---------- */
 .stars {
   display: flex;

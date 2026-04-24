@@ -43,7 +43,7 @@ class VerificationToken(Base):
 
     id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id     = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    token       = Column(String(255), nullable=False)
+    token       = Column(Text, nullable=False)
     expires_at  = Column(DateTime, nullable=False)
 
     user = relationship("User", back_populates="verification_tokens")
@@ -151,6 +151,20 @@ class Review(Base):
 
     booking  = relationship("Booking", back_populates="reviews")
     reviewer = relationship("User", foreign_keys=[reviewer_id])
+
+
+# ── NOTIFICATION SERVICE ──────────────────────────────────────────────────────
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id     = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    type        = Column(String(50), nullable=False)   # booking_status / new_message
+    title       = Column(String(255), nullable=False)
+    body        = Column(Text, nullable=False)
+    is_read     = Column(Boolean, default=False)
+    created_at  = Column(DateTime, server_default=func.now())
 
 
 # ── ADMIN SERVICE ─────────────────────────────────────────────────────────────

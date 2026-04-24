@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+import AvailabilityCalendar from "./booking/AvailabilityCalendar";
 import "../styles/PropertyDetail.css";
+import "../styles/Booking.css";
 
 const API_URL = "http://localhost:3000";
 
@@ -15,11 +17,23 @@ export default function PropertyDetail() {
   const [loading, setLoading] = useState(true);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [message, setMessage] = useState(null);
+  const [startingConversation, setStartingConversation] = useState(false);
+  const [propertyRating, setPropertyRating] = useState(null);
+  const [ownerRating, setOwnerRating] = useState(null);
 
   useEffect(() => {
     axios
       .get(`${API_URL}/catalog/properties/${id}`)
-      .then((res) => setProperty(res.data))
+      .then((res) => {
+        const prop = res.data;
+        setProperty(prop);
+        axios.get(`${API_URL}/bookings/ratings/${prop.id}?target_type=property`)
+          .then((r) => setPropertyRating(r.data));
+        if (prop.owner_id) {
+          axios.get(`${API_URL}/bookings/ratings/${prop.owner_id}?target_type=user`)
+            .then((r) => setOwnerRating(r.data));
+        }
+      })
       .catch(() => navigate("/"))
       .finally(() => setLoading(false));
   }, [id, navigate]);
@@ -37,6 +51,27 @@ export default function PropertyDetail() {
   const amenityList = property.amenities
     ? property.amenities.split(",").map((a) => a.trim()).filter(Boolean)
     : [];
+
+  async function handleStartConversation() {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    setStartingConversation(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.post(
+        `${API_URL}/interactions/conversations`,
+        { property_id: property.id, tenant_id: user.id, owner_id: property.owner_id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      navigate(`/messages?conversation=${res.data.id}`);
+    } catch (err) {
+      flash(err.response?.data?.detail || "Impossible de démarrer la conversation", "error");
+    } finally {
+      setStartingConversation(false);
+    }
+  }
 
   function flash(text, type = "success") {
     setMessage({ text, type });
@@ -65,6 +100,23 @@ export default function PropertyDetail() {
         <div className="pd-left">
 
           <h1 className="pd-title">{property.title}</h1>
+
+          <div className="pd-ratings">
+            <span className="pd-rating-badge">
+              <StarFilledIcon />
+              {propertyRating?.average != null
+                ? <>{propertyRating.average.toFixed(1)} <span className="pd-rating-count">({propertyRating.count} avis logement)</span></>
+                : <span className="pd-rating-none">Logement non encore noté</span>
+              }
+            </span>
+            <span className="pd-rating-badge pd-rating-badge--owner">
+              <StarFilledIcon />
+              {ownerRating?.average != null
+                ? <>{ownerRating.average.toFixed(1)} <span className="pd-rating-count">({ownerRating.count} avis propriétaire)</span></>
+                : <span className="pd-rating-none">Propriétaire non encore noté</span>
+              }
+            </span>
+          </div>
 
           {(property.address || property.city) && (
             <p className="pd-address">
@@ -135,18 +187,39 @@ export default function PropertyDetail() {
               </span>
               <span className="pd-booking-unit"> / nuit</span>
             </div>
-            <button
-              className="pd-booking-btn"
-              onClick={() => {
-                if (!user) {
-                  navigate("/login");
-                  return;
-                }
-                setShowBookingModal(true);
-              }}
-            >
-              Réserver
-            </button>
+            {user?.id === property.owner_id ? (
+              <button
+                className="pd-booking-btn"
+                onClick={() => navigate(`/properties/${property.id}/edit`)}
+              >
+                Modifier l'annonce
+              </button>
+            ) : (
+              <>
+                <button
+                  className="pd-booking-btn"
+                  onClick={() => {
+                    if (!user) {
+                      navigate("/login");
+                      return;
+                    }
+                    setShowBookingModal(true);
+                  }}
+                >
+                  Réserver
+                </button>
+                {user && (
+                  <button
+                    className="pd-contact-btn"
+                    onClick={handleStartConversation}
+                    disabled={startingConversation}
+                  >
+                    <ChatIcon />
+                    {startingConversation ? "Connexion…" : "Contacter le propriétaire"}
+                  </button>
+                )}
+              </>
+            )}
           </div>
 
         </div>
@@ -167,199 +240,91 @@ export default function PropertyDetail() {
   );
 }
 
-function BookingModal({ property, onClose, onSuccess, onError }) {
-  const today = new Date().toISOString().split("T")[0];
+function BookingModal({ property, onClose, onSuccess }) {
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [blockedDates, setBlockedDates] = useState([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(true);
+
+  useEffect(() => {
+    axios
+      .get(`${API_URL}/catalog/properties/${property.id}/availability`)
+      .then((res) => {
+        const blocked = (res.data || [])
+          .filter((a) => a.is_blocked)
+          .map((a) => a.date.split("T")[0]);
+        setBlockedDates(blocked);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingAvailability(false));
+  }, [property.id]);
 
   const numNights =
     checkIn && checkOut
-      ? Math.max(
-          0,
-          Math.round(
-            (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24)
-          )
-        )
+      ? Math.max(0, Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000))
       : 0;
 
   const totalPrice = property.price_per_night
     ? (parseFloat(property.price_per_night) * numNights).toFixed(2)
     : "—";
 
-  useEffect(() => {
-    if (!checkIn || !checkOut) {
-      setBlockedDates([]);
-      return;
-    }
-
-    const checkAvailability = async () => {
-      setCheckingAvailability(true);
-      setError("");
-
-      try {
-        const res = await axios.get(
-          `${API_URL}/catalog/properties/${property.id}/availability`
-        );
-        const blocked = (res.data || []).filter((a) => a.is_blocked);
-        const blockedDateSet = new Set(blocked.map((b) => b.date.split("T")[0]));
-        setBlockedDates([...blockedDateSet]);
-
-        const requestedDates = getDatesInRange(checkIn, checkOut);
-        const conflictDates = requestedDates.filter((d) =>
-          blockedDateSet.has(d)
-        );
-
-        if (conflictDates.length > 0) {
-          const formattedDates = conflictDates
-            .slice(0, 3)
-            .map((d) => formatDate(d))
-            .join(", ");
-          const suffix =
-            conflictDates.length > 3
-              ? ` et ${conflictDates.length - 3} autre(s)`
-              : "";
-          setError(
-            `Ces dates ne sont pas disponibles (${formattedDates}${suffix})`
-          );
-        }
-      } catch (err) {
-        console.error("Erreur vérification disponibilité:", err);
-      } finally {
-        setCheckingAvailability(false);
-      }
-    };
-
-    const timer = setTimeout(checkAvailability, 300);
-    return () => clearTimeout(timer);
-  }, [checkIn, checkOut, property.id]);
-
-  function getDatesInRange(start, end) {
-    const dates = [];
-    const current = new Date(start);
-    const endDate = new Date(end);
-    while (current < endDate) {
-      dates.push(current.toISOString().split("T")[0]);
-      current.setDate(current.getDate() + 1);
-    }
-    return dates;
-  }
-
-  function formatDate(dateStr) {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("fr-FR", {
-      day: "numeric",
-      month: "short",
-    });
-  }
-
-  function authHeaders() {
-    const token = localStorage.getItem("token");
-    return { Authorization: `Bearer ${token}` };
-  }
-
   function handleSubmit(e) {
     e.preventDefault();
-    setError("");
-
     if (!checkIn || !checkOut) {
-      setError("Veuillez sélectionner vos dates de séjour");
+      setError("Veuillez sélectionner vos dates sur le calendrier");
       return;
     }
-
-    if (new Date(checkIn) >= new Date(checkOut)) {
-      setError("La date d'arrivée doit être avant la date de départ");
-      return;
-    }
-
-    if (blockedDates.length > 0) {
-      setError("Certaines dates sélectionnées ne sont pas disponibles");
-      return;
-    }
-
+    setError("");
     setSubmitting(true);
+    const token = localStorage.getItem("token");
     axios
       .post(
         `${API_URL}/bookings`,
-        {
-          property_id: property.id,
-          check_in: checkIn,
-          check_out: checkOut,
-        },
-        { headers: authHeaders() }
+        { property_id: property.id, check_in: checkIn, check_out: checkOut },
+        { headers: { Authorization: `Bearer ${token}` } }
       )
       .then((res) => {
         const { success, error } = res.data;
-        if (success) {
-          onSuccess();
-        } else {
-          setError(error?.message || "Une erreur est survenue");
-        }
+        if (success) onSuccess();
+        else setError(error?.message || "Une erreur est survenue");
       })
       .catch((err) => {
-        const msg =
-          err.response?.data?.error?.message || "Erreur lors de la réservation";
-        setError(msg);
+        setError(err.response?.data?.error?.message || "Erreur lors de la réservation");
       })
       .finally(() => setSubmitting(false));
   }
 
-  const hasBlockedDatesInRange =
-    checkIn &&
-    checkOut &&
-    blockedDates.some((d) => {
-      return d >= checkIn && d < checkOut;
-    });
-
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card modal-card--wide" onClick={(e) => e.stopPropagation()}>
         <h2>Réserver</h2>
         <div className="booking-property-info">
           <strong>{property.title}</strong>
           <span>{property.city}</span>
         </div>
+
         {error && <p className="form-error">{error}</p>}
+
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Date d'arrivée</label>
-            <input
-              type="date"
-              value={checkIn}
-              min={today}
-              onChange={(e) => setCheckIn(e.target.value)}
+          {loadingAvailability ? (
+            <div className="availability-checking">Chargement des disponibilités…</div>
+          ) : (
+            <AvailabilityCalendar
+              blockedDates={blockedDates}
+              checkIn={checkIn}
+              checkOut={checkOut}
+              onChange={(ci, co) => { setCheckIn(ci); setCheckOut(co); setError(""); }}
             />
-          </div>
-          <div className="form-group">
-            <label>Date de départ</label>
-            <input
-              type="date"
-              value={checkOut}
-              min={checkIn || today}
-              onChange={(e) => setCheckOut(e.target.value)}
-            />
-          </div>
-          {checkingAvailability && (
-            <div className="availability-checking">
-              Vérification de la disponibilité...
-            </div>
           )}
-          {numNights > 0 && !checkingAvailability && (
+
+          {numNights > 0 && (
             <div className="booking-summary">
-              {hasBlockedDatesInRange ? (
-                <div className="availability-warning">
-                  ⚠️ Certaines dates ne sont pas disponibles
-                </div>
-              ) : (
-                <div className="availability-ok">✓ Dates disponibles</div>
-              )}
+              <div className="availability-ok">✓ Dates disponibles</div>
               <div className="booking-summary-row">
                 <span>
-                  {parseFloat(property.price_per_night).toFixed(0)} € ×{" "}
-                  {numNights} nuit{numNights > 1 ? "s" : ""}
+                  {parseFloat(property.price_per_night).toFixed(0)} € × {numNights} nuit{numNights > 1 ? "s" : ""}
                 </span>
                 <span>{totalPrice} €</span>
               </div>
@@ -369,25 +334,17 @@ function BookingModal({ property, onClose, onSuccess, onError }) {
               </div>
             </div>
           )}
+
           <div className="form-actions">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onClose}
-            >
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
               Annuler
             </button>
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={
-                submitting ||
-                numNights <= 0 ||
-                checkingAvailability ||
-                hasBlockedDatesInRange
-              }
+              disabled={submitting || !checkIn || !checkOut}
             >
-              {submitting ? "Réservation..." : "Confirmer"}
+              {submitting ? "Réservation…" : "Confirmer"}
             </button>
           </div>
         </form>
@@ -449,6 +406,23 @@ function BedIcon() {
       <path d="M2 17v2" />
       <path d="M22 17v2" />
       <rect x="6" y="9" width="5" height="3" rx="1" />
+    </svg>
+  );
+}
+
+function StarFilledIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
 }

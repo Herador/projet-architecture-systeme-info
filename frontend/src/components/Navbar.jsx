@@ -1,19 +1,63 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import "../styles/Navbar.css";
 
+const API_URL = "http://localhost:3000";
+
+function useNotifications(user) {
+  const [notifications, setNotifications] = useState([]);
+
+  const fetch = useCallback(() => {
+    const token = localStorage.getItem("token");
+    if (!token || !user) return;
+    axios.get(`${API_URL}/notifications`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((r) => setNotifications(r.data || [])).catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    fetch();
+    const id = setInterval(fetch, 30000);
+    return () => clearInterval(id);
+  }, [fetch]);
+
+  const markRead = async (id) => {
+    const token = localStorage.getItem("token");
+    await axios.patch(`${API_URL}/notifications/${id}/read`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
+  };
+
+  const markAllRead = async () => {
+    const token = localStorage.getItem("token");
+    await axios.patch(`${API_URL}/notifications/read-all`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+  };
+
+  return { notifications, markRead, markAllRead, refresh: fetch };
+}
+
 export default function Navbar() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, becomeOwner } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
+  const { notifications, markRead, markAllRead } = useNotifications(user);
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
         setDropdownOpen(false);
-      }
+      if (notifRef.current && !notifRef.current.contains(e.target))
+        setNotifOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -42,10 +86,41 @@ export default function Navbar() {
             <Link to="/my-properties" className="navbar-link">Mes annonces</Link>
           )}
           {user && <Link to="/bookings" className="navbar-link">Réservations</Link>}
+          {user && <Link to="/messages" className="navbar-link">Messagerie</Link>}
         </div>
       </div>
 
 <div className="navbar-right">
+        {user && (
+          <div className="navbar-notif" ref={notifRef}>
+            <button
+              className="navbar-notif-btn"
+              onClick={() => { setNotifOpen((o) => !o); if (!notifOpen && unreadCount > 0) markAllRead(); }}
+            >
+              <BellIcon />
+              {unreadCount > 0 && <span className="navbar-notif-badge">{unreadCount}</span>}
+            </button>
+            {notifOpen && (
+              <div className="navbar-notif-dropdown">
+                <div className="navbar-notif-header">Notifications</div>
+                {notifications.length === 0 ? (
+                  <div className="navbar-notif-empty">Aucune notification</div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`navbar-notif-item ${!n.is_read ? "unread" : ""}`}
+                      onClick={() => markRead(n.id)}
+                    >
+                      <span className="navbar-notif-title">{n.title}</span>
+                      <span className="navbar-notif-body">{n.body}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {user ? (
           <div className="navbar-user-menu" ref={dropdownRef}>
             <button
@@ -112,6 +187,16 @@ export default function Navbar() {
         )}
       </div>
     </nav>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
   );
 }
 

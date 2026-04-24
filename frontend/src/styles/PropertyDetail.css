@@ -222,6 +222,71 @@
   background: #2a201a;
 }
 
+.pd-ratings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.pd-rating-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #fdf3e7;
+  color: #b07a30;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+}
+
+.pd-rating-badge--owner {
+  background: #f0f4ff;
+  color: #5067b0;
+}
+
+.pd-rating-count {
+  font-weight: 400;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.pd-rating-none {
+  font-weight: 400;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.pd-contact-btn {
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.75rem;
+  background: transparent;
+  color: #3b2f27;
+  border: 1.5px solid #3b2f27;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  transition: background 0.2s, color 0.2s;
+}
+
+.pd-contact-btn:hover:not(:disabled) {
+  background: #3b2f27;
+  color: #fdf8f4;
+}
+
+.pd-contact-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ---------- Message notification ---------- */
 .pd-message {
   position: fixed;
@@ -327,6 +392,10 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.modal-card--wide {
+  max-width: 520px;
 }
 
 .modal-card h2 {

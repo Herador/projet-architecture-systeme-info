@@ -1,5 +1,22 @@
 services:
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   db:
     image: postgres:15
     environment:
@@ -66,9 +83,11 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       CATALOG_SERVICE_URL: http://catalog-service:8000
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
     depends_on:
       - db
       - catalog-service
+      - rabbitmq
 
   admin-service:
     build:
@@ -90,13 +109,33 @@ services:
       - gateway
 
   interaction-service:
-   build:
-     context: .
-     dockerfile: services/interaction-service/Dockerfile
-   environment:
-     DATABASE_URL: ${DATABASE_URL}
-   depends_on:
-     - gateway
+    build:
+      context: .
+      dockerfile: services/interaction-service/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - db
+      - rabbitmq
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    ports:
+      - "8007:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_FROM: noreply@rentalapp.local
+    depends_on:
+      - db
+      - rabbitmq
+      - mailhog
 
 volumes:
   postgres_data:

@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 from fastapi.responses import JSONResponse
+from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Query, Session
 
@@ -258,11 +259,12 @@ def build_bookings_query(
     user: UserIdentity,
     status: str | None,
 ) -> tuple[Query | None, JSONResponse | None]:
-    query = db.query(Booking)
-    if user["role"] == "owner":
-        query = query.filter(Booking.owner_id == user["user_id"])
-    else:
-        query = query.filter(Booking.tenant_id == user["user_id"])
+    query = db.query(Booking).filter(
+        or_(
+            Booking.tenant_id == user["user_id"],
+            Booking.owner_id == user["user_id"],
+        )
+    )
 
     if not status:
         return query, None

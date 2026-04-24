@@ -22,8 +22,14 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-def generate_token(user_id: uuid.UUID) -> str:
-    return jwt.encode({"user_id": str(user_id)}, JWT_SECRET_KEY, algorithm="HS256")
+def generate_token(user) -> str:
+    return jwt.encode({
+        "user_id":     str(user.id),
+        "username":    user.username,
+        "email":       user.email,
+        "role":        user.role,
+        "is_verified": user.is_verified,
+    }, JWT_SECRET_KEY, algorithm="HS256")
 
 
 # register
@@ -43,7 +49,7 @@ def register_account(data: CreateAccount, user=Depends(verify_no_connection)):
         session.commit()
         session.refresh(user)
 
-        token = generate_token(user.id)
+        token = generate_token(user)
         verification_token = VerificationToken(
             user_id=user.id,
             token=token,
@@ -79,7 +85,7 @@ def login_account(data: Login, user=Depends(verify_no_connection)):
         if not verify_password(data.password, user.hashed_password):
             raise HTTPException(status_code=401, detail="Invalid password")
 
-        token = generate_token(user.id)
+        token = generate_token(user)
         verification_token = VerificationToken(
             user_id=user.id,
             token=token,
@@ -171,7 +177,7 @@ def update_user_info(data: CreateAccount, user=Depends(get_current_user)):
 
 # devenir propriétaire
 @router.post("/become-owner")
-def become_owner(user=Depends(get_current_user)):
+def become_owner(request: Request, user=Depends(get_current_user)):
     session = SessionLocal()
     try:
         db_user = session.query(User).filter(User.id == user.id).first()
@@ -181,9 +187,25 @@ def become_owner(user=Depends(get_current_user)):
             raise HTTPException(status_code=400, detail="Already an owner")
         db_user.role = "owner"
         session.commit()
+        session.refresh(db_user)
+
+        # Invalider l'ancien token et émettre un nouveau avec le rôle mis à jour
+        auth_header = request.headers.get("Authorization")
+        old_token = auth_header.replace("Bearer ", "") if auth_header else None
+        if old_token:
+            session.query(VerificationToken).filter(VerificationToken.token == old_token).delete()
+
+        new_token = generate_token(db_user)
+        verification_token = VerificationToken(
+            user_id=db_user.id,
+            token=new_token,
+            expires_at=datetime.utcnow() + timedelta(hours=24)
+        )
+        session.add(verification_token)
+        session.commit()
     finally:
         session.close()
-    return {"message": "You are now an owner"}
+    return {"message": "You are now an owner", "token": new_token}
 
 
 # delete account

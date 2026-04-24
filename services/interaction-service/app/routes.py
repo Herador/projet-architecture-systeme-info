@@ -6,6 +6,7 @@ from uuid import UUID
 
 from shared.database import get_db
 from shared.models import Conversation, Message, Property, User
+from shared.rabbitmq import publish_event
 from . import schemas
 
 router = APIRouter(prefix="/interactions", tags=["Interactions"])
@@ -81,6 +82,18 @@ def add_message(conversation_id: UUID, msg_data: schemas.MessageCreate, db: Sess
     db.add(new_msg)
     db.commit()
     db.refresh(new_msg)
+
+    sender = db.query(User).filter(User.id == msg_data.sender_id).first()
+    recipient_id = conv.owner_id if str(msg_data.sender_id) == str(conv.tenant_id) else conv.tenant_id
+    recipient = db.query(User).filter(User.id == recipient_id).first()
+    publish_event("message.received", {
+        "conversation_id":  str(conversation_id),
+        "sender_name":      sender.username if sender else str(msg_data.sender_id),
+        "recipient_email":  recipient.email if recipient else None,
+        "recipient_name":   recipient.username if recipient else None,
+        "content":          msg_data.content[:200],
+    })
+
     return new_msg
 
 

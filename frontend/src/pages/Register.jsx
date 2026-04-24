@@ -35,7 +35,7 @@ export default function Register() {
     setLoading(true);
     try {
       const { data } = await axios.post(`${API_URL}/auth/register`, form);
-      login(data.token, data);
+      login(data.token);
       navigate("/");
     } catch (err) {
       setError(translateError(err));

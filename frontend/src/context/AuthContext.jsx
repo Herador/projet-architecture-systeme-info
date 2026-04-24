@@ -5,6 +5,27 @@ const API_URL = "http://localhost:3000";
 
 const AuthContext = createContext(null);
 
+function decodeToken(token) {
+  try {
+    const payload = token.split(".")[1];
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+}
+
+function userFromToken(token) {
+  const payload = decodeToken(token);
+  if (!payload) return null;
+  return {
+    id:          payload.user_id,
+    username:    payload.username,
+    email:       payload.email,
+    role:        payload.role,
+    is_verified: payload.is_verified,
+  };
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,7 +36,6 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
-  // Global 401 interceptor — fires on any axios response with status 401
   useEffect(() => {
     interceptorRef.current = axios.interceptors.response.use(
       (response) => response,
@@ -33,46 +53,38 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      setLoading(false);
-      return;
+    if (!token) { setLoading(false); return; }
+    const decoded = userFromToken(token);
+    if (decoded) {
+      setUser(decoded);
+    } else {
+      _clearSession();
     }
-    axios
-      .get(`${API_URL}/auth/getInfo`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => setUser(res.data))
-      .catch(() => _clearSession())
-      .finally(() => setLoading(false));
+    setLoading(false);
   }, []);
 
-  function login(token, userData) {
+  function login(token) {
     localStorage.setItem("token", token);
-    setUser(userData);
+    setUser(userFromToken(token));
   }
 
   function logout() {
     const token = localStorage.getItem("token");
     axios
-      .post(
-        `${API_URL}/auth/logout`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      .post(`${API_URL}/auth/logout`, {}, { headers: { Authorization: `Bearer ${token}` } })
       .finally(() => _clearSession());
   }
 
   async function becomeOwner() {
     const token = localStorage.getItem("token");
-    await axios.post(
+    const { data } = await axios.post(
       `${API_URL}/auth/become-owner`,
       {},
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    const { data } = await axios.get(`${API_URL}/auth/getInfo`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setUser(data);
+    const newToken = data.token || token;
+    if (data.token) localStorage.setItem("token", data.token);
+    setUser(userFromToken(newToken));
   }
 
   return (

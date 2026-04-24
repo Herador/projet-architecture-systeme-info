@@ -27,6 +27,7 @@ export default function Booking() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
+  const [tab, setTab] = useState("mine");
   const [message, setMessage] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(null);
@@ -141,38 +142,41 @@ export default function Booking() {
 
   function toggleReviews(bookingId) {
     if (expandedReviews[bookingId]) {
-      setExpandedReviews((previous) => {
-        const next = { ...previous };
-        delete next[bookingId];
-        return next;
-      });
+      setExpandedReviews((prev) => { const n = { ...prev }; delete n[bookingId]; return n; });
       return;
     }
 
-    axios
-      .get(`${API_URL}/bookings/${bookingId}/reviews`, {
-        headers: authHeaders(),
-      })
-      .then((res) => {
-        handleApiResponse(
-          res.data,
-          (data) => {
-            setExpandedReviews((previous) => ({ ...previous, [bookingId]: data }));
-          },
-          handleError
-        );
-      })
-      .catch(buildErrorHandler("Erreur lors du chargement des avis"));
+    const booking = [...myBookings, ...receivedBookings].find((b) => b.id === bookingId);
+    const isOwnerPending = activePerspective === "owner" && booking?.status === "pending";
+
+    if (isOwnerPending) {
+      axios
+        .get(`${API_URL}/bookings/reviews/about/${booking.tenant_id}?target_type=user`)
+        .then((res) => {
+          setExpandedReviews((prev) => ({ ...prev, [bookingId]: res.data }));
+        })
+        .catch(buildErrorHandler("Erreur lors du chargement des avis"));
+    } else {
+      axios
+        .get(`${API_URL}/bookings/${bookingId}/reviews`, { headers: authHeaders() })
+        .then((res) => {
+          handleApiResponse(
+            res.data,
+            (data) => setExpandedReviews((prev) => ({ ...prev, [bookingId]: data })),
+            handleError
+          );
+        })
+        .catch(buildErrorHandler("Erreur lors du chargement des avis"));
+    }
   }
 
-  function renderActions(booking) {
+  function renderActions(booking, perspective) {
     if (!config) return null;
 
-    const role = user?.role;
     const actions = [];
-    const transitions = getStatusTransitions(config, role, booking.status);
+    const transitions = getStatusTransitions(config, perspective, booking.status);
 
-    if (role === "owner") {
+    if (perspective === "owner") {
       transitions.forEach((status) => {
         const isAccepted = status === "accepted";
         actions.push(
@@ -187,7 +191,7 @@ export default function Booking() {
       });
     }
 
-    if (role === "tenant" || role === "admin") {
+    if (perspective === "tenant") {
       if (transitions.includes("paid")) {
         actions.push(
           <button
@@ -211,18 +215,18 @@ export default function Booking() {
           </button>
         );
       }
-    }
 
-    if (booking.status === "paid") {
-      actions.push(
-        <button
-          key="review"
-          className="btn btn-warning btn-sm"
-          onClick={() => setShowReviewModal(booking)}
-        >
-          Laisser un avis
-        </button>
-      );
+      if (booking.status === "paid") {
+        actions.push(
+          <button
+            key="review"
+            className="btn btn-warning btn-sm"
+            onClick={() => setShowReviewModal(booking)}
+          >
+            Laisser un avis
+          </button>
+        );
+      }
     }
 
     return actions;
@@ -233,24 +237,50 @@ export default function Booking() {
 
   const filters = buildFilters(config);
 
+  const myBookings = bookings.filter((b) => b.tenant_id === user.id);
+  const receivedBookings = bookings.filter((b) => b.owner_id === user.id);
+
+  const activeList = tab === "mine" ? myBookings : receivedBookings;
+  const activePerspective = tab === "mine" ? "tenant" : "owner";
+  const filteredList = filter ? activeList.filter((b) => b.status === filter) : activeList;
+
   return (
     <div className="booking-page">
       <div className="booking-container">
         <div className="booking-header">
-          <h1>Mes réservations</h1>
-          {user.role === "tenant" && (
-            <button
-              className="btn btn-primary"
-              onClick={() => setShowCreateModal(true)}
-            >
-              Nouvelle réservation
-            </button>
-          )}
+          <h1>Réservations</h1>
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowCreateModal(true)}
+          >
+            Nouvelle réservation
+          </button>
         </div>
 
         {message && (
           <div className={`booking-message ${message.type}`}>{message.text}</div>
         )}
+
+        <div className="booking-tabs">
+          <button
+            className={`booking-tab ${tab === "mine" ? "active" : ""}`}
+            onClick={() => { setTab("mine"); setFilter(""); }}
+          >
+            Mes réservations
+            {myBookings.length > 0 && (
+              <span className="booking-tab-badge">{myBookings.length}</span>
+            )}
+          </button>
+          <button
+            className={`booking-tab ${tab === "received" ? "active" : ""}`}
+            onClick={() => { setTab("received"); setFilter(""); }}
+          >
+            Demandes reçues
+            {receivedBookings.length > 0 && (
+              <span className="booking-tab-badge">{receivedBookings.length}</span>
+            )}
+          </button>
+        </div>
 
         <div className="booking-filters">
           {filters.map((currentFilter) => (
@@ -266,20 +296,19 @@ export default function Booking() {
 
         {loading ? (
           <div className="booking-loading">Chargement...</div>
-        ) : bookings.length === 0 ? (
-          <div className="booking-empty">
-            <p>Aucune réservation trouvée</p>
-          </div>
+        ) : filteredList.length === 0 ? (
+          <div className="booking-empty"><p>Aucune réservation</p></div>
         ) : (
           <div className="booking-list">
-            {bookings.map((booking) => (
+            {filteredList.map((booking) => (
               <BookingCard
                 key={booking.id}
                 booking={booking}
                 statusLabel={getStatusLabel(config, booking.status)}
-                actions={renderActions(booking)}
+                actions={renderActions(booking, activePerspective)}
                 reviews={expandedReviews[booking.id]}
                 onToggleReviews={toggleReviews}
+                perspective={activePerspective}
               />
             ))}
           </div>

@@ -1,8 +1,31 @@
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { API_URL } from "./api";
 import {
   formatBookingDate,
   formatPrice,
   getBookingNights,
 } from "./formatters";
+
+function TenantRating({ tenantId }) {
+  const [rating, setRating] = useState(null);
+
+  useEffect(() => {
+    axios
+      .get(`${API_URL}/bookings/ratings/${tenantId}?target_type=user`)
+      .then((res) => setRating(res.data))
+      .catch(() => {});
+  }, [tenantId]);
+
+  if (!rating?.average) return null;
+
+  return (
+    <span className="tenant-rating-badge">
+      ★ {rating.average.toFixed(1)}
+      <span className="tenant-rating-count">({rating.count} avis locataire)</span>
+    </span>
+  );
+}
 
 export default function BookingCard({
   booking,
@@ -10,6 +33,7 @@ export default function BookingCard({
   actions,
   reviews,
   onToggleReviews,
+  perspective,
 }) {
   const hasReviewsLoaded = Boolean(reviews);
   const reviewCount = reviews?.length || 0;
@@ -20,6 +44,9 @@ export default function BookingCard({
         <div>
           <h3 className="booking-card-title">Réservation</h3>
           <p className="booking-card-id">#{booking.id.slice(0, 8)}</p>
+          {perspective === "owner" && (
+            <TenantRating tenantId={booking.tenant_id} />
+          )}
         </div>
         <span className={`status-badge status-${booking.status}`}>
           {statusLabel}
@@ -65,29 +92,39 @@ export default function BookingCard({
 
       {hasReviewsLoaded && (
         <div className="reviews-section">
-          <h4>Avis ({reviewCount})</h4>
-          {reviewCount === 0 ? (
-            <p style={{ fontSize: "0.85rem", color: "#888" }}>
-              Aucun avis pour cette réservation
-            </p>
-          ) : (
-            reviews.map((review) => (
-              <div key={review.id} className="review-item">
-                <div className="review-item-header">
-                  <span className="review-stars">
-                    {"★".repeat(review.rating)}
-                    {"☆".repeat(5 - review.rating)}
-                  </span>
-                  <span className="review-date">
-                    {formatBookingDate(review.created_at)}
-                  </span>
-                </div>
-                {review.comment && (
-                  <p className="review-comment">{review.comment}</p>
+          {(() => {
+            const isOwnerPending = perspective === "owner" && booking.status === "pending";
+            const filtered = isOwnerPending
+              ? reviews.filter((r) => r.target_type === "user")
+              : reviews.filter((r) => r.target_type === "property");
+            const label = isOwnerPending ? "Avis sur le locataire" : "Avis sur le logement";
+            const empty = isOwnerPending ? "Aucun avis sur ce locataire" : "Aucun avis sur le logement";
+            return (
+              <>
+                <h4>{label} ({filtered.length})</h4>
+                {filtered.length === 0 ? (
+                  <p style={{ fontSize: "0.85rem", color: "#888" }}>{empty}</p>
+                ) : (
+                  filtered.map((review) => (
+                    <div key={review.id} className="review-item">
+                      <div className="review-item-header">
+                        <span className="review-stars">
+                          {"★".repeat(review.rating)}
+                          {"☆".repeat(5 - review.rating)}
+                        </span>
+                        <span className="review-date">
+                          {formatBookingDate(review.created_at)}
+                        </span>
+                      </div>
+                      {review.comment && (
+                        <p className="review-comment">{review.comment}</p>
+                      )}
+                    </div>
+                  ))
                 )}
-              </div>
-            ))
-          )}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>
